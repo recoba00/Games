@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>한입컷</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<style>/*CSS*/</style>
+</head>
+<body>
+<div id="sideFx"></div>
+<div id="fullDim"></div>
+<div id="stage"><div class="ibg" data-bg="intro_end"></div><img class="sframe" data-a="intro_first" alt=""></div>
+<div id="app">
+  <canvas id="game"></canvas>
+  <div class="hdr" id="hdr">
+    <button class="tbtn" id="btnRank">랭킹</button>
+    <span class="tbw"><button class="tbtn" id="btnMis">미션</button><i class="cnt" id="hdrDot">0/5</i><span class="mtip" id="missionTip">보상받기</span></span>
+    <div class="splank" id="stagePlank">스테이지.1</div>
+  </div>
+
+  <div class="layer" id="lobby">
+    <img class="logo" data-a="logo" alt="한입컷">
+    <div class="lobbyBottom">
+      <div class="nick lnick hidden" id="lobbyNick"><input id="nickInput" maxlength="12" placeholder="닉네임 (2~12자)" aria-label="닉네임"><button class="btn s" id="btnNick">저장</button></div>
+      <button class="btn green" id="btnStart">게임 시작</button>
+      <div class="row">
+        <button class="btn blue" id="btnSet2">게임 설정</button>
+        <button class="btn red" id="btnMission" style="position:relative">리워드 미션<span class="rchip hidden" id="rewardChip"></span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="layer hidden" id="play">
+    <div class="topRow"><div class="bar" id="bar"><div class="trk"><i id="barFill"></i></div></div><div class="steps" id="steps"></div></div>
+    <div class="instr" id="instr"></div>
+    <div class="hint" id="hint"></div>
+    <div class="nav">
+      <button class="navb" id="navSet"><span class="rbtn m"><img class="navSetIc" data-a="i_settings" alt=""></span><em>설정</em></button>
+      <button class="navb" id="navHome"><span class="rbtn m"><img data-a="i_home" alt=""></span><em>홈</em></button>
+    </div>
+  </div>
+
+  <div class="cdim hidden" id="cdim">
+    <div class="stageLabel" id="stageLabel"></div>
+    <div class="ring" id="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" class="bg"/><circle cx="60" cy="60" r="52" class="fg" id="ringFg"/></svg><span id="count">3</span></div>
+  </div>
+
+  <div class="ready hidden" id="ready">화면을 터치하면 시작!</div>
+  <div id="popRoot"></div>
+  <canvas id="fx"></canvas>
+</div>
+<div id="intro">
+  <div class="ibg" data-bg="intro_end"></div>
+  <video id="introVideo" src="intro.mp4" muted playsinline webkit-playsinline preload="auto" disablepictureinpicture></video>
+  <img class="iend" data-a="intro_end" alt="">
+  <button id="introSkip">건너뛰기</button>
+  <div class="itap">화면을 터치해서 시작하세요</div>
+</div>
+<script>/*ASSETS*/</script>
+<script>/*JS*/</script>
+</body>
+</html>

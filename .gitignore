@@ -1,0 +1,16 @@
+# 빌드 결과물 (README의 빌드 방법으로 다시 만듦)
+build/
+bb/dist/
+ait/dist/
+*.ait
+ait/bridge/toss-bridge.min.js
+
+# 의존성
+node_modules/
+
+# 기타
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+*.log

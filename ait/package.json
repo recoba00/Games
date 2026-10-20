@@ -1,0 +1,19 @@
+{
+  "name": "hanipcut",
+  "version": "0.9.35",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "python3 build-toss.py && ait build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@apps-in-toss/web-framework": "^3.8.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  },
+  "private": true
+}
