@@ -1,14 +1,5 @@
-# 빌드 결과물 (README의 빌드 방법으로 다시 만듦)
-build/
-bb/dist/
-ait/dist/
-*.ait
-ait/bridge/toss-bridge.min.js
-
-# 의존성
+# 모든 게임 공통 (게임별 규칙은 각 게임 폴더의 .gitignore)
 node_modules/
-
-# 기타
 __pycache__/
 *.pyc
 .DS_Store
