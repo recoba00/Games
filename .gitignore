@@ -14,3 +14,6 @@ __pycache__/
 .DS_Store
 Thumbs.db
 *.log
+
+# 로컬 업로드 도구 (각자 PC용)
+*.bat
