@@ -1,0 +1,49 @@
+# main에 올라갈 때마다 게임을 빌드해서 GitHub Pages로 배포
+# 주소: https://recoba00.github.io/Games/            (게임 목록)
+#       https://recoba00.github.io/Games/hanipcut/   (한입컷)
+name: Deploy games to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build hanipcut (web)
+        working-directory: hanipcut/bb
+        run: python build.py
+      - name: Assemble site
+        run: |
+          mkdir -p _site/hanipcut
+          cp -r hanipcut/bb/dist/. _site/hanipcut/
+          rm -f _site/hanipcut/bungeo-banban.html _site/hanipcut/README.txt
+          cp site/index.html _site/index.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
