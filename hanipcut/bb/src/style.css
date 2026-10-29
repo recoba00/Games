@@ -46,6 +46,24 @@ canvas{position:absolute;left:0;top:0;pointer-events:none}
 .btn.pulse{animation:pulse 1s ease-in-out infinite}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
 
+/* Game currency and boosters */
+.walletHud{position:absolute;top:calc(var(--hdr-top) + 40px);left:17px;right:17px;display:flex;justify-content:space-between;z-index:23;pointer-events:none}
+.walletPill{pointer-events:auto;font:14px 'Jua',sans-serif;color:#4a2c10;display:flex;align-items:center;gap:5px;padding:5px 9px;min-height:28px;border:2px solid #87552b;border-radius:16px;background:#fff4d5;box-shadow:0 2px 0 #64361540;cursor:pointer}
+.walletPill b{font-weight:400}.walletPill small{font-size:11px;color:#86603e}.heartIcon{color:#df514b;font-size:17px}.coinIcon{color:#dd9b16;text-shadow:0 1px 0 #945e06;font-size:17px}
+.playTools{position:absolute;left:17px;right:17px;bottom:calc(var(--bottom-pad) + 66px);z-index:22}
+.cutStatus{font-size:13px;text-align:center;min-height:20px;color:#755034;margin-bottom:3px}
+.boosterBar{display:flex;gap:8px}.booster{position:relative;flex:1;min-width:0;min-height:61px;border:2px solid #b37b3b;border-radius:12px;background:linear-gradient(#fff9e9,#ffe7ac);box-shadow:0 3px 0 #8a501c40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:13px 'Jua',sans-serif;color:#603d1c;cursor:pointer}
+.booster i{font-size:25px;font-style:normal;line-height:1}.booster b{position:absolute;right:4px;top:3px;min-width:15px;font-size:11px;background:#80532c;color:#fff;border-radius:8px;padding:1px 3px;font-weight:400}
+.booster.active{background:linear-gradient(#ecffda,#bce898);border-color:#438034}.booster.active b{background:#438034}.booster:disabled{opacity:.55;cursor:default}.booster:focus-visible,.walletPill:focus-visible{outline:3px solid #3175af;outline-offset:2px}
+.judgeBtn{position:absolute;left:17px;bottom:var(--bottom-pad);width:180px;height:48px;z-index:22;font-size:19px}
+.areaPreview{position:absolute;top:calc(var(--hdr-top) + 205px);left:17px;right:17px;text-align:center;display:flex;justify-content:center;gap:4px;flex-wrap:wrap;pointer-events:none;font-size:13px;z-index:6}
+.areaPreview span{background:#fff9e8ed;border:1px solid #b77a36;border-radius:10px;padding:2px 7px}
+.bar.frozen i{background:linear-gradient(#8ce1ff,#319ace)}
+.heartContinue{font-size:16px;padding:0 10px}
+.shopRow .btn{display:block;height:48px;line-height:1.25;white-space:normal}
+.shopList{display:flex;flex-direction:column;gap:9px}.shopRow{background:#fff2ce;border:2px solid #c7924c;border-radius:12px;padding:10px;display:flex;gap:10px;align-items:center;color:#603d1c}.shopRow .shopIcon{font-size:28px;min-width:30px;text-align:center}.shopInfo{flex:1}.shopInfo strong{font-size:17px;font-weight:400}.shopInfo p{font-size:12px;line-height:1.4;margin:4px 0}.shopRow .btn{width:84px;flex-shrink:0;padding:0 5px;font-size:13px}.shopSummary{text-align:center;font-size:14px;padding:4px 0 10px}
+@media(max-height:700px){.booster{min-height:54px}.booster i{font-size:22px}}
+
 /* lobby */
 /* 로비 배경 = 인트로와 같은 무대(흐린 배경 + 영상 첫 프레임 정지) → 영상 끝나고 화면이 그대로 이어짐 */
 #stage{position:fixed;inset:0;overflow:hidden;background:#2a1a0c;z-index:0}
@@ -61,7 +79,7 @@ body.inPlay #stage{display:none}
 #app.inLobby #pts{display:none}
 
 /* play hud */
-.topRow{position:absolute;left:17px;right:17px;top:calc(var(--hdr-top) + 69px);height:28px;display:flex;align-items:center;justify-content:space-between}
+.topRow{position:absolute;left:17px;right:17px;top:calc(var(--hdr-top) + 88px);height:28px;display:flex;align-items:center;justify-content:space-between}
 .bar{width:120px;height:26px;border-radius:13px;background:#e2852c;border:2.5px solid #7a3b10;padding:3.5px;box-shadow:inset 0 2px 0 rgba(255,212,138,.5),0 2px 0 rgba(58,26,5,.8)}
 .bar .trk{height:14px;border-radius:7px;background:rgba(0,0,0,.64);overflow:hidden;box-shadow:inset 0 1.5px 2px rgba(0,0,0,.35)}
 .bar i{display:block;height:100%;border-radius:7px;background:linear-gradient(#8cde5e,#3ea52a);box-shadow:inset 0 2px 0 rgba(255,255,255,.45);width:100%;transition:width .1s linear}
@@ -74,7 +92,7 @@ body.inPlay #stage{display:none}
   box-shadow:inset 0 2px 0 rgba(255,212,138,.55),inset 0 -3px 0 rgba(142,69,18,.45),0 1.5px 0 rgba(58,26,5,.24)}  /* Wood · 진행 중 */
 .step.done{border-radius:10px;border-color:#1f6512;background:linear-gradient(#8cde5e,#3ea52a);box-shadow:inset 0 2px 0 rgba(255,255,255,.4),inset 0 -3px 0 rgba(31,101,18,.35),0 1.5px 0 rgba(58,26,5,.24)}  /* Wood · Green */
 .step.done svg{display:block}
-#play .instr{position:absolute;left:17px;right:17px;top:calc(var(--hdr-top) + 113px);text-align:center;font-size:24px;line-height:1.33;white-space:pre-line}
+#play .instr{position:absolute;left:17px;right:17px;top:calc(var(--hdr-top) + 128px);text-align:center;font-size:24px;line-height:1.33;white-space:pre-line}
 #play .hint{position:absolute;left:17px;right:17px;top:calc(var(--hdr-top) + 193px);text-align:center;font-size:18px;color:var(--text2)}
 .nav{position:absolute;right:31px;bottom:var(--bottom-pad);display:flex;gap:16px;z-index:22}
 .navb{position:relative;width:48px;background:none;border:0;padding:0;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;font-family:inherit}

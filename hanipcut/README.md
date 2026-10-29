@@ -1,16 +1,27 @@
 # 한입컷 (Hanipcut)
 
-음식 그림을 화면을 밀어 잘라 정해진 조각 수로 똑같이 나누는 3단계 스낵게임. 토스 미니앱(앱인토스) + 웹.
+음식 그림을 자유곡선으로 잘라 정해진 조각 수로 똑같이 나누는 스낵게임. 토스 미니앱(앱인토스) + 웹 + PWA.
 
-- 현재 버전: **v0.9.35** (`bb/src/game.js` 의 `CFG.version`)
+- 현재 버전: **v0.10.0** (`bb/src/game.js` 의 `CFG.version`)
 - 엔진 없음: HTML5 Canvas 2D + 순수 JS
 - 리워드 동선(첫 접속 → 튜토리얼 → 출석·알림 2배 → 미션 → 판 종료 안내 → 광고 · 랭킹)은 다른 게임에도 그대로 쓰는 공통 UX
+
+## 게임 규칙과 아이템
+
+- 1~3단계 제한시간은 30·30·24초. 연승 도전 3·6·9·12…번째 판에는 4단계(7등분, 24초)가 추가됩니다.
+- 음식 바깥까지 드래그한 자유곡선으로 자릅니다. 자르기를 모두 마치면 **판정하기**로 확정하며, 확정 전에는 마지막 선도 취소할 수 있습니다.
+- 광고 이어하기는 한 판 3회, 하루 무제한입니다. 광고 실패·중도 종료는 차감하지 않습니다. 하트 1개로도 실패한 단계부터 이어할 수 있습니다.
+- 최초 하트 5개, 코인 50개, 각 부스터 1개. 하트는 최대 5개까지 20분에 1개 충전되고, 판 클리어 시 코인 20개(4단계 포함 판은 30개)를 받습니다. 게임 코인은 토스포인트와 별개입니다.
+- 상점 가격: 하트 30코인, 취소 10, 도우미 30, 스탑워치 20, 돋보기 30.
+- **취소**는 직전 선을 되돌립니다. **도우미**는 같은 면적의 실선 가이드, **돋보기**는 드래그 중 면적 %를 보여주며 해당 판의 성공·실패까지 유지됩니다. **스탑워치**는 현재 단계의 시간을 멈추며 다음 단계·재시도 시 해제됩니다.
+
+요구사항 체크리스트와 기본값 결정은 [설계서](docs/superpowers/specs/2026-10-29-gameplay-expansion-design.md), audit 점수와 검증 결과는 [audit 기록](docs/superpowers/specs/2026-10-29-gameplay-expansion-audit.md)에 있습니다.
 
 ## 폴더 구조
 
 ```
 bb/                 게임 원본
-  src/              index.html · style.css · game.js  (실제 코드는 여기만 고치면 됨)
+  src/              index.html · style.css · game-core.js · game.js
   assets/           UI 이미지(빌드 때 인라인), foods/ 음식 50종 WebP, fx/, intro.mp4, bgm_*.mp4
   raw_foods/        음식 원본 PNG (560px, 투명)
   music/            compose.py + MIDI
@@ -45,6 +56,19 @@ npx ait build             # → ait/hanipcut.ait  (콘솔 업로드용)
 - 게임 폴더 위치가 다르면 `HANIPCUT_GAME=/path/to/bb python3 build-toss.py`
 
 ## 테스트 방법
+
+```bash
+node --test bb/tests/game-core.test.cjs
+python -X utf8 -m unittest discover -s bb/tests -p "test_*.py"
+python -X utf8 pwa/build.py
+python -X utf8 -m unittest discover -s pwa -p "test_*.py"
+```
+
+브라우저 테스트는 Python Playwright와 Microsoft Edge를 사용합니다. 곡선·교차·7등분·재화·광고 중복 방지 및 음식 50종의 가이드 판정을 검증합니다.
+
+Microsoft Store용 PWA 빌드: `python pwa/build.py` → `pwa/dist/`, `pwa/hanipcut-pwa.zip`.
+설치·검증·Store 패키징 절차와 제출 전 해결할 항목은 [pwa/README.md](pwa/README.md)를 참고하세요. ZIP은 웹 호스팅용이며 MSIX가 아닙니다.
+
 - 웹 주소 뒤 `?reset=1` → 신규 유저로 처음부터
 - 웹 주소 뒤 `?adfail=1` → 광고 불러오기 실패 상황
 - 토스 앱: 설정 팝업의 '버전' 글자를 3초 안에 5번 → 테스트 초기화
@@ -52,7 +76,7 @@ npx ait build             # → ait/hanipcut.ait  (콘솔 업로드용)
 ## ⚠ 출시 전에 지울 테스트 코드
 | 위치 | 내용 |
 |---|---|
-| `bb/src/game.js` 맨 위 `TEST_BUILD_ID` 블록 + `bb/build.py`의 `/*BUILD_ID*/` 치환 | 빌드할 때마다 모든 유저를 신규로 초기화 |
+| `bb/src/game.js` 맨 위 `TEST_BUILD_ID` 블록 + `bb/build.py`의 `/*BUILD_ID*/` 치환 | 명시적 `?reset=1` 초기화만 허용. 일반 재빌드 시 기존 저장 유지 |
 | `bb/src/game.js` `CFG.loginExample: true` | 토스에서도 로그인을 예시 화면으로 |
 | `bb/src/game.js` `testResetTap()` (▼▼▼ [테스트용] 표시) + `openSettings` 안 호출 1줄 | 버전 5번 탭 초기화 |
 | `FakeAd`의 `?adfail=1` | 웹 테스트용 광고 실패 |

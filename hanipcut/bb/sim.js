@@ -12,7 +12,8 @@ const { chromium } = require('playwright');
     for (const sigma of [4, 7, 10]) { out['σ' + sigma + 'px'] = CFG.stages.map((st, si) => {
       const ideal = q(st.pieces); let pass = 0, sum = 0; const N = 300;
       for (let i = 0; i < N; i++) {
-        const lines = ideal.map(x => { const a = g() * 3 * Math.PI / 180; return { px: x + g() * sigma, py: Food.mh / 2, dx: Math.sin(a), dy: Math.cos(a) }; });
+        const lines = ideal.map(x => { const a = g() * 3 * Math.PI / 180, cx=x+g()*sigma;
+          return [{x:cx-Math.tan(a)*(Food.mh/2+20),y:-20},{x:cx+Math.tan(a)*(Food.mh/2+20),y:Food.mh+20}]; });
         const t = si === 2 ? 0.45 : 0.5; const sc = scoreOf(st, computePieces(lines), t); sum += sc.score; if (sc.ok) pass++;
       }
       return `${si + 1}단계 통과 ${Math.round(pass / N * 100)}% 평균 ${(sum / N).toFixed(1)}`; }); }

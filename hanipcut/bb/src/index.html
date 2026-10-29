@@ -21,6 +21,11 @@
     <div class="splank" id="stagePlank">스테이지.1</div>
   </div>
 
+  <div class="walletHud" id="walletHud">
+    <button id="btnHearts" class="walletPill" aria-label="하트와 상점"><span class="heartIcon">♥</span><b id="heartCount">5</b><small id="heartTimer">가득</small></button>
+    <button id="btnShop" class="walletPill" aria-label="코인과 아이템 상점"><span class="coinIcon">●</span><b id="coinCount">50</b><small>상점 +</small></button>
+  </div>
+
   <div class="layer" id="lobby">
     <img class="logo" data-a="logo" alt="한입컷">
     <div class="lobbyBottom">
@@ -37,6 +42,17 @@
     <div class="topRow"><div class="bar" id="bar"><div class="trk"><i id="barFill"></i></div></div><div class="steps" id="steps"></div></div>
     <div class="instr" id="instr"></div>
     <div class="hint" id="hint"></div>
+    <div class="areaPreview hidden" id="areaPreview" aria-live="polite"></div>
+    <div class="playTools" id="playTools">
+      <div class="cutStatus" id="cutStatus"></div>
+      <div class="boosterBar" id="boosterBar" role="group" aria-label="부스터 아이템">
+        <button class="booster" data-item="undo"><i>↶</i><span>취소</span><b>1</b></button>
+        <button class="booster" data-item="helper"><i>✦</i><span>도우미</span><b>1</b></button>
+        <button class="booster" data-item="stopwatch"><i>◷</i><span>스탑워치</span><b>1</b></button>
+        <button class="booster" data-item="magnifier"><i>⌕</i><span>돋보기</span><b>1</b></button>
+      </div>
+    </div>
+    <button class="btn green judgeBtn hidden" id="btnJudge">판정하기</button>
     <div class="nav">
       <button class="navb" id="navSet"><span class="rbtn m"><img class="navSetIc" data-a="i_settings" alt=""></span><em>설정</em></button>
       <button class="navb" id="navHome"><span class="rbtn m"><img data-a="i_home" alt=""></span><em>홈</em></button>

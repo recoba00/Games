@@ -1,0 +1,21 @@
+{
+  "name": "hanip-cut",
+  "packageId": "GRF.hanip-cut",
+  "url": "https://hanipcut.vercel.app/",
+  "version": "1.0.2.0",
+  "allowSigning": true,
+  "publisher": {
+    "displayName": "Gurucompany",
+    "commonName": "CN=5A90E1D7-EE51-44E5-9460-1BC5D5265033"
+  },
+  "generateModernPackage": true,
+  "classicPackage": {
+    "generate": false
+  },
+  "edgeHtmlPackage": {
+    "generate": false
+  },
+  "edgeChannel": "stable",
+  "manifestUrl": "https://hanipcut.vercel.app/manifest.webmanifest",
+  "resourceLanguage": "ko-KR"
+}

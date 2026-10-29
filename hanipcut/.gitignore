@@ -2,6 +2,9 @@
 build/
 bb/dist/
 ait/dist/
+pwa/dist/
+pwa/hanipcut-pwa.zip
+pwa/windows/
 *.ait
 ait/bridge/toss-bridge.min.js
 
