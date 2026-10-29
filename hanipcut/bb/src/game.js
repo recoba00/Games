@@ -19,7 +19,7 @@ const CFG = {
   // 광고 — 모두 내부 어드민 설정값 (연결 전 임시값). 광고를 못 불러오면 횟수 차감 없음
   adRetryPerGame: 3,    // 실패 이어하기(보상형 광고): 한 판에 N번, 일일 제한 없음
   adEveryN: 3,          // N판마다 팝업형 광고(전면 아님) — 결과 팝업에서 다음 판으로 넘어갈 때. 0 = 안 띄움
-  version: '0.10.0',
+  version: '0.11.0',
   // 출석 선물 7일 (날짜 기준: 1일차 = 튜토리얼 완료일, 그날 못 받으면 기간만료) — 1일차도 같은 '출석 선물'(이름 통일). ※ 2~7일차 금액은 기획 확정 전 임시값
   // 노란 테두리 = 보상이 가장 큰 2일 (자동 계산, 보통 3·7일차가 되게 금액 설정)
   attend: [5, 1, 2, 1, 1, 1, 5], attendNote: ['추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용'],   // 칸 둘째 줄 (기획 확정 전 자리표시)
@@ -55,6 +55,7 @@ const S = Object.assign({ points: 0, best: 0, bestClear: 0, sound: true, bgm: tr
 }, S0);
 const save = () => Store.save(S);
 GameCore.initWallet(S); save();
+S.cutMode = S.cutMode === 'curve' ? 'curve' : 'straight'; save();
 
 // ───────────────── 채널 어댑터 ─────────────────
 const HAPTIC = {
@@ -310,7 +311,7 @@ function fit() {
   const popTop = tossNav ? L.hdrTop + 44 : sTop / s, popBot = safeInset('bottom') / s, vis = L.H - popTop - popBot;
   app.style.setProperty('--pop-top', popTop + 'px'); app.style.setProperty('--pop-bot', popBot + 'px'); app.style.setProperty('--pop-max', Math.round(vis - 24) + 'px');
   for (const c of [gcv, fcv]) { c.width = Math.round(360 * s * L.dpr); c.height = Math.round(L.H * s * L.dpr); c.style.width = '360px'; c.style.height = L.H + 'px'; }
-  const top = L.hdrTop + 222, bot = L.H - L.bottom - 140;
+  const top = L.hdrTop + 182, bot = L.H - L.bottom - 140;
   L.foodCX = 180; L.foodCY = Math.round((top + bot) / 2);
   Food.prepare();
   $('ring').style.top = (L.foodCY - 58) + 'px'; $('stageLabel').style.top = (L.foodCY - 58 - 48) + 'px'; $('ready').style.top = (L.foodCY - 22) + 'px';
@@ -751,7 +752,7 @@ function renderPlay(c) {
   }
   c.restore();
   // 칼 궤적
-  if (G.trail.length > 1) {
+  if (G.trail.length > 1 && cutMode()==='curve') {
     const now = performance.now(); const pts = G.trail;
     for (let pass = 0; pass < 2; pass++) for (let i = 1; i < pts.length; i++) { const a = 1 - (now - pts[i].t) / 160; if (a <= 0) continue; const w = i / pts.length;
       c.strokeStyle = pass ? `rgba(255,255,255,${a})` : `rgba(255,154,46,${a * 0.4})`; c.lineWidth = pass ? 2 + 7 * w : 8 + 12 * w; c.lineCap = 'round';
@@ -760,6 +761,7 @@ function renderPlay(c) {
   }
   if (G.dragging && G.dragPath.length>1) {
     c.save(); c.strokeStyle='#fff'; c.lineWidth=3; c.lineCap='round'; c.lineJoin='round';
+    c.shadowColor='#ff9a2e';c.shadowBlur=8;
     strokePath(c,G.dragPath,0,0); c.restore();
   }
 }
@@ -883,27 +885,28 @@ function refreshLobby() {
   app.classList.toggle('canClaim', n > 0);   // 받을 보상이 있으면 [미션]·[리워드 미션] 버튼이 주기적으로 움찔 + 게임 중엔 [미션] 아래 말풍선
 }
 function refreshWallet() {
-  GameCore.regenerateHearts(S);
-  $('heartCount').textContent=S.hearts; $('coinCount').textContent=S.coins.toLocaleString('ko-KR');
-  const seconds=Math.max(0,Math.ceil((GameCore.HEART_MS-(Date.now()-S.heartAt))/1000));
-  $('heartTimer').textContent=S.hearts>=GameCore.HEART_MAX?'가득':`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;
-  const retry=G.state==='failed'&&Pop.el&&Pop.el.querySelector('[data-heart]');
-  if(retry){retry.disabled=!S.hearts||continueAdBusy;retry.classList.toggle('disabled',retry.disabled);retry.textContent=`♥ 하트 1개로 이어하기 · 보유 ${S.hearts}개`;}
+  $('coinCount').textContent=S.coins.toLocaleString('ko-KR');
+}
+function cutMode() { return G.tut ? 'straight' : S.cutMode; }
+function toggleCutMode() {
+  if(G.tut||G.state!=='cutting'||G.paused||Pop.el||G.dragging)return;
+  S.cutMode=S.cutMode==='curve'?'straight':'curve';save();refreshBoosters();Platform.haptic('tap');
 }
 function roundStages() { return G.tut ? 3 : GameCore.stageCount(G.stageNo || 1); }
 function resetEffects() { G.effects={helper:false,magnifier:false}; G.frozen=false; G.preview=null; G.guidePaths=null; }
 function refreshBoosters() {
-  const usable=G.state==='cutting'&&!G.paused&&!G.tut&&!Pop.el;
+  const usable=G.state==='cutting'&&!G.paused&&!G.tut&&!Pop.el&&!G.dragging;
   document.querySelectorAll('[data-item]').forEach(b=>{
     const key=b.dataset.item, active=key==='stopwatch'?G.frozen:!!G.effects[key];
     b.classList.toggle('active',active); b.querySelector('b').textContent=active?'ON':S.items[key];
-    b.disabled=!usable||active||!S.items[key]||(key==='undo'&&!G.lines.length);
-    b.setAttribute('aria-label',`${GameCore.ITEMS[key].name}, ${active?'사용 중':S.items[key]+'개'}`);
+    b.disabled=!usable||active;
+    b.setAttribute('aria-label',`${GameCore.ITEMS[key].name}, ${active?'사용 중':S.items[key]+'개'+(!S.items[key]?', 코인 또는 광고로 사용':'')}`);
     b.title=GameCore.ITEMS[key].desc;
   });
-  $('btnJudge').classList.toggle('hidden',G.tut||G.state!=='cutting'||G.cutsLeft>0);
-  $('btnJudge').disabled=!usable;
-  $('cutStatus').textContent=G.tut?'':G.cutsLeft?`남은 자르기 ${G.cutsLeft}회 · 곡선으로 자유롭게 그려요`:'자르기 완료! 취소하거나 판정하기를 눌러요';
+  const mode=$('btnCutMode'),curve=cutMode()==='curve';
+  mode.disabled=!usable;mode.classList.toggle('curve',curve);mode.setAttribute('aria-pressed',String(curve));
+  mode.setAttribute('aria-label',`자르기 모드: ${curve?'곡선':'직선'}. 누르면 ${curve?'직선':'곡선'}으로 전환`);
+  $('cutStatus').textContent=G.tut?'':G.cutsLeft?`남은 자르기 ${G.cutsLeft}회 · ${curve?'그린 곡선대로 잘라요':'시작점과 끝점을 곧게 이어요'}`:'자르기 완료! 결과를 확인해요';
   $('bar').classList.toggle('frozen',G.frozen);
   $('areaPreview').classList.toggle('hidden',!G.effects.magnifier||!G.preview||G.state!=='cutting');
   if(G.effects.magnifier&&G.preview) $('areaPreview').innerHTML=G.preview.pieces.map(p=>`<span>${fmt(p.area/G.preview.total*100)}%</span>`).join('');
@@ -914,35 +917,46 @@ function refreshPreview() {
   G.preview=computePieces(path&&path.length>1?[...G.lines,path]:G.lines); refreshBoosters();
 }
 function useBooster(key) {
-  if(G.state!=='cutting'||G.paused||Pop.el||G.tut||G.dragging) return false;
-  if(key==='undo'&&!G.lines.length) return false;
+  if(!Object.hasOwn(GameCore.ITEMS,key)||G.state!=='cutting'||G.paused||Pop.el||G.tut||G.dragging) return false;
   if(key==='stopwatch'?G.frozen:G.effects[key]) return false;
-  if(!GameCore.consume(S,key)) {toast('상점에서 아이템을 채워 주세요');return false;}
-  if(key==='undo') {G.lines.pop();G.cutsLeft++;G.flash=[];clearChips();G.preview=null;}
-  else if(key==='stopwatch') {G.frozen=true;$('bar').classList.remove('low');toast('이번 단계의 시간을 멈췄어요');}
+  if(!GameCore.consume(S,key)) {openItemUse(key);return false;}
+  if(key==='stopwatch') {G.frozen=true;$('bar').classList.remove('low');toast('이번 단계의 시간을 멈췄어요');}
   else {G.effects[key]=true;toast(`${GameCore.ITEMS[key].name} · 이번 판 동안 사용해요`);}
   save();refreshWallet();if(G.effects.magnifier)refreshPreview();refreshBoosters();Platform.haptic('tap');return true;
 }
-function openShop() {
-  if(G.state==='judging')return;
-  const paused=G.paused;G.paused=true;cancelDrag();refreshBoosters();
-  const body=document.createElement('div');body.className='shopList';
-  const render=()=>{
-    refreshWallet();body.innerHTML=`<div class="shopSummary">♥ ${S.hearts}/5 · 코인 ${S.coins}개<br>하트는 20분마다 1개 충전돼요 · 판 클리어 시 코인 +20</div>`;
-    const products={heart:{name:'하트',icon:'♥',price:30,desc:'1개로 실패한 단계부터 이어해요. 최대 5개까지 보유해요.'},...GameCore.ITEMS};
-    for(const [key,item]of Object.entries(products)){
-      const row=document.createElement('div');row.className='shopRow';
-      row.innerHTML=`<div class="shopIcon">${item.icon}</div><div class="shopInfo"><strong>${item.name} <small>· ${key==='heart'?S.hearts:S.items[key]}개</small></strong><p>${item.desc}</p></div><button class="btn m green" data-buy="${key}">${item.price}코인<br>구매</button>`;
-      const b=row.querySelector('button');b.disabled=S.coins<item.price||(key==='heart'&&S.hearts>=5);b.classList.toggle('disabled',b.disabled);
-      b.onclick=()=>{if(GameCore.buy(S,key)){save();Sfx.coin();render();refreshWallet();refreshBoosters();}};body.appendChild(row);
-    }
+let itemAdBusy=false;
+function openItemUse(key) {
+  const item=GameCore.ITEMS[key],flow=G.flow,wasPaused=G.paused;
+  G.paused=true;cancelDrag();refreshBoosters();
+  const body=document.createElement('div');body.className='col itemUse';
+  body.innerHTML=`<div class="slot"><div class="itemUseIcon" aria-hidden="true">${item.icon}</div><div class="lead2">${item.name}를 모두 사용했어요</div><div class="desc">${item.desc}</div><div class="itemBalance">보유 코인 ${S.coins}개</div></div>
+    <button class="btn green" data-item-coin>코인 ${item.price}개로 사용</button>
+    <button class="btn blue" data-item-ad>광고 보고 사용 <span class="ad">AD</span></button>
+    <div class="itemFeedback" role="status" aria-live="polite">선택하는 동안 게임 시간은 멈춰요</div>`;
+  let finished=false,busy=false;
+  const valid=()=>!finished&&flow===G.flow&&G.state==='cutting'&&Pop.el===dialog;
+  const resume=()=>{G._hiddenPause=wasPaused;G.paused=wasPaused||document.hidden;refreshBoosters();};
+  const close=()=>{if(busy||finished)return;finished=true;if(flow===G.flow)resume();};
+  const dialog=Pop.open({title:`${item.name} 사용`,body,onClose:close});
+  const coin=body.querySelector('[data-item-coin]'),ad=body.querySelector('[data-item-ad]'),feedback=body.querySelector('.itemFeedback');
+  const controls=()=>{coin.disabled=busy||S.coins<item.price;coin.classList.toggle('disabled',coin.disabled);ad.disabled=busy;dialog.querySelector('[data-x]').disabled=busy;};
+  const apply=()=>{finished=true;Pop.close();G.paused=wasPaused;useBooster(key);resume();};
+  controls();
+  coin.onclick=()=>{if(busy||!valid())return;if(!GameCore.buy(S,key)){feedback.textContent='코인이 부족해요. 광고를 보고 사용할 수 있어요';controls();return;}apply();};
+  ad.onclick=async()=>{
+    if(busy||itemAdBusy||!valid())return;
+    busy=true;itemAdBusy=true;Pop._busy=true;feedback.textContent='광고를 불러오고 있어요';controls();
+    let result;try{result=await Platform.showRewardedAd();}catch(e){result='error';}
+    finally{busy=false;itemAdBusy=false;Pop._busy=false;}
+    if(!valid())return;
+    if(result==='done'){S.items[key]++;apply();return;}
+    feedback.textContent=result==='closed'?'광고를 끝까지 보면 사용할 수 있어요':'광고를 불러오지 못했어요. 다시 시도해 주세요';controls();
   };
-  render();Pop.open({title:'아이템 상점',body,onClose:()=>{G.paused=paused;refreshBoosters();}});
 }
 // 지급: 채널 지갑(토스 프로모션 / 제휴사 API) 대기열 → 받는 순간 소리·진동 + 토스 토스트
 function grant(n, reason, silent) { S.points += n; save(); Platform.grantPoint(n, reason); refreshPoints(); if (!silent) rewardToast(n); }
 function josa(w, a, b) { const c = w.charCodeAt(w.length - 1) - 0xac00; return c >= 0 && c <= 11171 && c % 28 ? a : b; }
-function rewardToast(n = 1) { Sfx.coin(); Platform.haptic('reward'); toast(`한입컷에서 ${won(n)}를 지급했어요`, true); }
+function rewardToast(n = 1, coins = 0) { Sfx.coin(); Platform.haptic('reward'); toast(`한입컷에서 ${missionReward({p:n,coins})}를 지급했어요`, true); }
 
 // ───────────────── 출석 선물 (7일 · 날짜 기준) — 1일차 = 튜토리얼 완료일, 2~7일차 = 그날 첫 로비 진입 팝업 ─────────────────
 // 보관 없음: 그날 받을 일차는 그날 안에(팝업·미션 창) 받아야 하고, 날짜가 지나면 '기간만료'
@@ -1106,7 +1120,8 @@ const MIS = {
   time30: { name: '오늘 30분 플레이', p: 1, max: 30, reset: '0시 초기화' },
   notif: { name: '알림 받기', p: 1, max: 1, reset: '초기화 없음' },
 };
-const BONUS_P = 20, REP_P = 1, REP_EVERY = 5, REP_CAP = 10;
+const BONUS_P = 20, REP_P = 1, REP_COINS = 10, REP_EVERY = 5, REP_CAP = 10;
+const missionReward = x => `${won(x.p)}${x.coins ? ` + 코인 ${x.coins}개` : ''}`;
 const Missions = {
   state() {
     const today = dayKey(); let m = S.m;
@@ -1128,7 +1143,7 @@ const Missions = {
     ];
     if (this.notifVisible()) daily.push(Object.assign(mk('notif', S.notifOk ? 1 : 0, !!S.notifDone, '1회 · 초기화 없음'), { apply: !S.notifOk }));
     const got = Math.min(REP_CAP, Math.floor(m.plays / REP_EVERY)), avail = got - m.rep;
-    const rep = { id: 'rep', name: '5판마다 반복', p: REP_P, cur: avail > 0 ? REP_EVERY : m.plays % REP_EVERY, max: REP_EVERY, claimed: m.rep >= REP_CAP, ready: avail > 0,
+    const rep = { id: 'rep', name: '5판마다 반복', p: REP_P, coins: REP_COINS, cur: avail > 0 ? REP_EVERY : m.plays % REP_EVERY, max: REP_EVERY, claimed: m.rep >= REP_CAP, ready: avail > 0,
       meta: m.rep >= REP_CAP ? `오늘 ${REP_CAP}번 다 받았어요` : `${avail > 0 ? REP_EVERY : m.plays % REP_EVERY}/${REP_EVERY} · 계속 반복` };
     const ach = daily.filter(x => x.cur >= x.max).length;
     const bonus = { id: 'bonus', name: '오늘 달성 보너스', p: BONUS_P, cur: ach, max: daily.length, claimed: m.bonus, ready: !m.bonus && ach >= daily.length, meta: `${ach}/${daily.length} · ${daily.length}개 모두 달성 시 ${BONUS_P}P 지급!` };
@@ -1140,7 +1155,8 @@ const Missions = {
     const m = this.state(), l = this.list(), it = [l.bonus, l.rep, ...l.daily].find(x => x.id === id); if (!it || !it.ready) return 0;
     if (id === 'bonus') m.bonus = true; else if (id === 'rep') m.rep++; else if (id === 'play20') m.w14.claimed = true;
     else if (id === 'notif') { S.notifDone = true; S.notifDay = dayKey(); } else m.claimed[id] = true;
-    save(); grant(it.p, 'mission_' + id, silent); return it.p;
+    if(it.coins) S.coins+=it.coins;
+    save(); grant(it.p, 'mission_' + id, silent); refreshWallet(); return it.p;
   },
 };
 const Sess = { told: new Set() };   // 같은 안내는 세션당 1회
@@ -1151,13 +1167,13 @@ function roundEndNotice() {
   if (!fresh.length && !welcome) { nMoreNotice(); return; }
   fresh.forEach(x => Sess.told.add(x.id)); if (welcome) Sess.told.add('welcome');
   setTimeout(() => {
-    if (S.login) toastToMission(`미션 달성! ${won(fresh.reduce((a, x) => a + x.p, 0))} 받을 수 있어요`, true);
+    if (S.login) toastToMission(`미션 달성! ${missionReward({p:fresh.reduce((a,x)=>a+x.p,0),coins:fresh.reduce((a,x)=>a+(x.coins||0),0)})} 받을 수 있어요`, true);
     else toastToMission('받을 보상이 생겼어요 · 미션에서 확인해요');
   }, 700);
 }
 // 받을 보상이 새로 안 생긴 판 (Figma 5-4): 달성에 가장 가까운 미션 1개를 토스트로 → [미션]으로 흡수
 // 후보 = 오늘 5판 · 20판 · 30분 · 5판마다 반복 (남은 비율이 가장 작은 것, 같으면 보상 큰 것)
-// 예: '오늘 5판 플레이까지 2판 남았어요 · 3P' / '3판 더 하면 1P를 받아요'(반복). 알림 팝업이 뜰 첫 정식 판이면 안 띄움
+// 반복 미션 안내에는 포인트와 코인을 함께 표시. 알림 팝업이 뜰 첫 정식 판이면 안 띄움
 function nearMission() {
   const m = Missions.state(), l = Missions.list(), c = [];
   for (const x of l.daily) {
@@ -1173,8 +1189,8 @@ function nearMission() {
 function nMoreNotice(mid) {
   if (S.alarmAsk === 1 && !Alarm.on()) return;
   const n = nearMission(); if (!n) return;
-  if (mid && n.unit === '판' && n.left === 1) { setTimeout(() => toastToMission(n.rep ? `이번 판만 끝내면 ${won(n.x.p)}를 받아요` : `이번 판만 끝내면 ${n.x.name} ${won(n.x.p)}!`, true), 700); return; }
-  const msg = n.rep ? `${n.left}판 더 하면 ${won(n.x.p)}를 받아요` : `${n.x.name}까지 ${n.left}${n.unit} 남았어요 · ${won(n.x.p)}`;
+  if (mid && n.unit === '판' && n.left === 1) { setTimeout(() => toastToMission(n.rep ? `이번 판만 끝내면 ${missionReward(n.x)}를 받아요` : `이번 판만 끝내면 ${n.x.name} ${missionReward(n.x)}!`, true), 700); return; }
+  const msg = n.rep ? `${n.left}판 더 하면 ${missionReward(n.x)}를 받아요` : `${n.x.name}까지 ${n.left}${n.unit} 남았어요 · ${missionReward(n.x)}`;
   setTimeout(() => toastToMission(msg, true), 700);
 }
 // 미션 팝업: 누른 화면 위에서 열림 (로비→로비 위, 게임→게임 위)
@@ -1189,7 +1205,7 @@ function openMissions(onDone) {
     return '<button class="btn s" data-wait>진행 중</button>';
   };
   const bar = (x) => `<i class="mbar"><i style="width:${Math.round(Math.min(1, x.cur / x.max) * 100)}%"></i></i>`;
-  const row = (x, wide) => `<div class="mrow ${wide ? 'wide' : ''} ${x.ready ? 'can' : ''}" data-id="${x.id}"><div class="minfo"><div class="mt"><b>${x.name}</b><span class="rp">${x.p}P</span></div>
+  const row = (x, wide) => `<div class="mrow ${wide ? 'wide' : ''} ${x.coins ? 'withCoins' : ''} ${x.ready ? 'can' : ''}" data-id="${x.id}"><div class="minfo"><div class="mt"><b>${x.name}</b><span class="rp">${x.p}P${x.coins ? ` + 코인 ${x.coins}개` : ''}</span></div>
     <div class="mm">${x.id === 'notif' ? '' : bar(x)}<span>${x.meta}</span></div></div>${btn(x)}</div>`;
   const render = () => {
     const l = Missions.list(), left = l.daily.filter(x => !x.claimed).length;
@@ -1206,7 +1222,7 @@ function openMissions(onDone) {
     h += `<div class="mlab"><b>일일 미션</b><span>남은 ${left}개</span></div>${l.daily.map(x => row(x)).join('')}`;
     body.innerHTML = h;
     // 하나씩 받기: 받으면 다시 그리고, 다음으로 받을 수 있는 줄로 부드럽게 이동
-    const claimOne = (id) => { const n = id === 'attend' ? Attend.claim() : Missions.claim(id, true); if (!n) return; Platform.haptic('tap'); rewardToast(n); render(); refreshLobby();
+    const claimOne = (id) => { const n = id === 'attend' ? Attend.claim() : Missions.claim(id, true); if (!n) return; Platform.haptic('tap'); rewardToast(n, id==='rep'?REP_COINS:0); render(); refreshLobby();
       requestAnimationFrame(() => { Pop.updFade && Pop.updFade(); const next = body.querySelector('.mrow.can'); if (next) setTimeout(() => Pop.reveal(next, true), 250); }); };
     body.querySelectorAll('[data-c]').forEach(b => b.onclick = () => claimOne(b.dataset.c));
     // 미로그인: 누른 줄 기준으로 로그인 → 그 보상 하나만 받음 (나머지는 '받기'로 바뀌어 하나씩)
@@ -1368,7 +1384,7 @@ function adPopup(next) {
 function goLobby() {
   cancelDrag(); resetEffects(); G._loadTk=(G._loadTk||0)+1;
   if(G.tut){G.tut=false;Tut.clear();}
-  G.flow=(G.flow||0)+1;G.state='lobby';G.judge=null;clearChips();Screen.show('lobby');refreshBoosters();
+  G.flow=(G.flow||0)+1;G.state='lobby';G.paused=false;G.judge=null;Pop.close();clearChips();Screen.show('lobby');refreshBoosters();
 }
 function startStage() {
   const st=CFG.stages[G.stage];
@@ -1417,7 +1433,8 @@ function appendDrag(e) {
   for(const sample of [...samples,e]) {
     const p=toLogical(sample),prev=G.dragPath[G.dragPath.length-1];
     if(prev&&Math.hypot(p.x-prev.x,p.y-prev.y)<0.6)continue;
-    G.dragPath.push(p);G.dragCur=p;G.trail.push({...p,t:performance.now()});
+    if(cutMode()==='straight')G.dragPath=[G.dragStart,p];else G.dragPath.push(p);
+    G.dragCur=p;G.trail.push({...p,t:performance.now()});
   }
 }
 app.addEventListener('pointerdown',e=>{
@@ -1460,9 +1477,9 @@ function doCut(path) {
   const stride=Math.max(1,Math.floor(path.length/10));
   for(let i=stride;i<path.length;i+=stride)crumbs(Food.ox()+path[i-stride].x,Food.oy()+path[i-stride].y,Food.ox()+path[i].x,Food.oy()+path[i].y,2);
   Sfx.cut();Sfx.shing();Platform.haptic('cut');if(G.effects.magnifier)refreshPreview();updateHint();
-  if(G.tut&&G.cutsLeft<=0)confirmCuts();
+  if(G.cutsLeft<=0)finishCuts();
 }
-function confirmCuts() {
+function finishCuts() {
   if(G.state!=='cutting'||G.paused||Pop.el||G.cutsLeft>0||G.dragging)return;
   cancelDrag();G.state='judging';refreshBoosters();const tk=G.flow;
   setTimeout(()=>{if(tk===G.flow&&G.state==='judging')judge();},420);
@@ -1535,16 +1552,15 @@ function showStageClear(sc, res) {
 }
 function isBetter(c, sc) { return c > (S.bestClear || 0) || (c === (S.bestClear || 0) && c > 0 && sc > (S.best || 0)); }
 function endRun() { if (isBetter(G.clears, G.runTotal)) { S.bestClear = G.clears; S.best = G.runTotal; save(); Platform.submitScore(S.bestClear, S.best); } rankNotice(); }
-// 실패 창 (Figma 6-4 · 6-6): 광고 이어하기 = 실패한 단계부터 다시(같은 판). 횟수는 한 판·하루 기준 어드민 값
+// 실패 창: 광고 이어하기 = 실패한 단계부터 다시(같은 판). 한 판 3회, 일일 제한 없음
 let continueAdBusy=false;
 function showFail(sc,again) {
   cancelDrag();resetEffects();G.state='failed';endGame();refreshBoosters();refreshWallet();
   const st=CFG.stages[G.stage],leftGame=CFG.adRetryPerGame-G.adUsed,canAd=leftGame>0;
   const lead=sc.reason==='time'?'시간이 다 됐어요':sc.reason==='count'?`${G.judge.res.pieces.length}조각이 됐어요 (목표 ${st.pieces}조각)`:`기준 ${st.pass}점까지 ${fmt(st.pass-sc.score)}점 모자라요`;
   const scoreLine=sc.reason==='score'?`<div class="big" data-n>${fmt(sc.score)}점</div>`:'<img class="gift" data-a="ad_clapper" style="animation:none">';
-  const info=canAd?`<div class="lead2">${G.stage+1}단계부터 다시 도전해요</div><div class="desc">이번 판 광고 이어하기 ${leftGame}/3회 남음<br>오늘의 이어하기 무제한 · 광고 시청은 선택이에요</div>`:'<div class="lead2">이번 판 광고 이어하기를 다 썼어요</div><div class="desc">하트로 이어하거나 처음부터 다시 도전해요<br>오늘의 이어하기 횟수는 무제한이에요</div>';
+  const info=canAd?`<div class="lead2">${G.stage+1}단계부터 다시 도전해요</div><div class="desc">이번 판 광고 이어하기 ${leftGame}/${CFG.adRetryPerGame}회 남음<br>오늘의 이어하기 무제한 · 광고 시청은 선택이에요</div>`:'<div class="lead2">이번 판 광고 이어하기를 다 썼어요</div><div class="desc">처음부터 다시 도전해요<br>새 게임은 횟수 제한 없이 즐길 수 있어요</div>';
   const body=`<div class="col"><div class="slot">${scoreLine}<div class="lead">${lead}</div>${info}</div>
-    <button class="btn red heartContinue ${S.hearts?'':'disabled'}" data-heart ${S.hearts?'':'disabled'}>♥ 하트 1개로 이어하기 · 보유 ${S.hearts}개</button>
     ${canAd?'<button class="btn green" data-ad>광고 보고 이어하기 <span class="ad">AD</span></button>':''}
     <div class="row2"><button class="btn" data-home>홈으로</button><button class="btn" data-restart>처음부터</button></div></div>`;
   let left=false;const once=fn=>()=>{if(left||continueAdBusy)return;left=true;Pop.close();clearChips();fn();};
@@ -1552,7 +1568,6 @@ function showFail(sc,again) {
   const d=Pop.open({title:'아쉬워요!',body,cls:again?'enter':'up',onClose:home});
   d.querySelector('[data-home]').onclick=home;
   d.querySelector('[data-restart]').onclick=once(()=>{endRun();afterRound(newGame,true);});
-  d.querySelector('[data-heart]').onclick=()=>{if(left||continueAdBusy||!GameCore.consumeHeart(S))return;left=true;save();refreshWallet();clearChips();startStage();};
   const ad=d.querySelector('[data-ad]');if(ad)ad.onclick=()=>{if(continueAdBusy||left)return;watchContinueAd(sc,()=>{ad.disabled=false;ad.classList.remove('disabled');});};
   if(!again)roundEndNotice();
 }
@@ -1563,7 +1578,7 @@ async function watchContinueAd(sc,back) {
   let r;try{r=await Platform.showRewardedAd();}catch(e){r='error';}
   finally{continueAdBusy=false;Pop._busy=false;}
   if(flow!==G.flow||!['failed','judging'].includes(G.state))return;
-  if(Pop.el)Pop.el.querySelectorAll('button').forEach(b=>b.disabled=b.hasAttribute('data-heart')&&!S.hearts);
+  if(Pop.el)Pop.el.querySelectorAll('button').forEach(b=>b.disabled=false);
   if(r==='done'){G.adUsed++;clearChips();startStage();return;}
   if(r==='closed'){if(back)back();return;}
   const b=document.createElement('div');b.className='col';
@@ -1574,13 +1589,13 @@ async function watchContinueAd(sc,back) {
   b.querySelector('[data-back]').onclick=toFail;
 }
 function showFinal(sc) {
-  if(G.roundRewarded)return;G.roundRewarded=true;GameCore.rewardRound(S,roundStages()===4);save();refreshWallet();resetEffects();refreshBoosters();
+  if(G.roundRewarded)return;G.roundRewarded=true;resetEffects();refreshBoosters();
   endGame();
   const total = G.stageScores.reduce((a, b) => a + (b || 0), 0); G.runTotal += total; G.clears = G.stageNo;
   const isBest = isBetter(G.clears, G.runTotal); endRun();
   const m = Missions.state();
   const body = `<div class="col"><div class="slot"><div class="big" data-n>0.0점</div><div class="lead">${G.stageScores.map(fmt).join(' + ')}</div>
-    <div class="chips"><span class="chip">코인 +${roundStages()===4?30:20}</span><span class="chip">${isBest ? `최고 기록! ${G.clears}연승` : `최고 ${S.bestClear}연승`}</span></div>
+    <div class="chips"><span class="chip">${isBest ? `최고 기록! ${G.clears}연승` : `최고 ${S.bestClear}연승`}</span></div>
     <button class="btn green" data-next>다음 스테이지</button></div></div>`;
   $('instr').textContent = '모든 단계를\n성공했어요!'; $('hint').textContent = '연승 기록이 랭킹에 올라가요';
   let advanced=false;const nextSet=()=>{if(advanced)return;advanced=true;Pop.close();clearChips();G.stageNo++;afterRound(startSet,true);};
@@ -1799,12 +1814,10 @@ const Intro = {
 
 // ───────────────── 시작 ─────────────────
 // [게임 시작] → 인게임 진입 순간 그날 출석 팝업 1번 (Figma 4-2 · 4-4, 로비에서는 안 띄움)
-$('btnShop').onclick=openShop;$('btnHearts').onclick=openShop;
-$('btnJudge').onclick=confirmCuts;
+$('btnCutMode').onclick=toggleCutMode;
 $('boosterBar').querySelectorAll('[data-item]').forEach(b=>b.onclick=()=>useBooster(b.dataset.item));
 $('playTools').addEventListener('pointerdown',e=>e.stopPropagation());
 $('walletHud').addEventListener('pointerdown',e=>e.stopPropagation());
-setInterval(()=>{const old=S.hearts;refreshWallet();if(old!==S.hearts)save();},1000);
 $('btnStart').onclick = () => { Sfx.unlock(); Sfx.pop(); G.attPending = !!Attend.today() && S.attShown !== dayKey(); newGame(); };
 $('btnMission').onclick = () => { Sfx.pop(); openMissions(); };
 $('btnNick').onclick = () => { Sfx.pop(); const v = $('nickInput').value.trim();
@@ -1823,7 +1836,7 @@ $('btnRank').onclick = () => { if (G.state === 'judging') return; Sfx.pop(); ope
 $('navSet').onclick = () => { if (G.state === 'judging') return; Sfx.pop(); openSettings(); };
 for (const id of ['hdr']) $(id).addEventListener('pointerdown', e => e.stopPropagation());
 window.addEventListener('tossinsets', () => { L._fitted = false; fit(); });
-document.addEventListener('visibilitychange', () => { cancelDrag(); if (document.hidden) { G._hiddenPause = G.paused; G.paused = true; Sfx.suspend(); } else { G.paused = G._hiddenPause || !!Pop.el && G.state === 'cutting'; Sfx.resume(); } });
+document.addEventListener('visibilitychange', () => { cancelDrag(); if (document.hidden) { G._hiddenPause = G.paused; G.paused = true; Sfx.suspend(); } else { G.paused = G._hiddenPause || !!Pop.el && G.state === 'cutting'; Sfx.resume(); } refreshBoosters(); });
 addEventListener('resize', fit); addEventListener('orientationchange', () => setTimeout(fit, 250));
 document.addEventListener('focusout', (e) => { if (e.target && e.target.tagName === 'INPUT') setTimeout(() => { window.scrollTo(0, 0); fit(); }, 120); });
 assetImgs(); document.querySelectorAll('[data-bg]').forEach(el => { el.style.backgroundImage = `url(${ASSETS[el.dataset.bg]})`; });
@@ -1837,4 +1850,4 @@ const afterIntro = () => { Sfx.preload(); CatSlash.preload(); FoodLoader.preload
 Intro.start(afterIntro);
 document.addEventListener('pointerdown', () => Sfx.unlock(), { capture: true });
 // 디버그/QA 훅
-window.__bb = { useBooster, refreshBoosters, refreshWallet, refreshPreview, openShop, confirmCuts, cancelDrag, startCutting, update, goLobby, watchContinueAd, roundStages, nearMission, nMoreNotice, Tut, Attend, Alarm, attendOffer, attendView, afterRound, alarmPopup, adPopup, showFail, showFinal, openMissions, roundEndNotice, CatSlash, FoodLoader, Intro, FOODS, startSet, openRanking, G, S, CFG, Food, Missions, computePieces, scoreOf, doCut, judge, startStage, newGame, L };
+window.__bb = { useBooster, refreshBoosters, refreshWallet, refreshPreview, toggleCutMode, cancelDrag, startCutting, update, goLobby, watchContinueAd, roundStages, nearMission, nMoreNotice, Tut, Attend, Alarm, attendOffer, attendView, afterRound, alarmPopup, adPopup, showFail, showFinal, openMissions, roundEndNotice, CatSlash, FoodLoader, Intro, FOODS, startSet, openRanking, G, S, CFG, Food, Missions, computePieces, scoreOf, doCut, judge, startStage, newGame, L };

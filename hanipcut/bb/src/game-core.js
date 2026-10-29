@@ -1,46 +1,31 @@
 /* Shared game rules. No DOM, platform API, or external dependencies. */
 (function (root) {
   'use strict';
-  const HEART_MAX = 5, HEART_MS = 20 * 60 * 1000;
   const ITEMS = Object.freeze({
-    undo: { name: '취소', icon: '↶', price: 10, desc: '직전에 그은 선을 취소해요. 시간은 돌아가지 않아요.' },
     helper: { name: '도우미', icon: '✦', price: 30, desc: '같은 면적으로 나누는 실선 가이드. 이번 판 성공 또는 실패까지 유지돼요.' },
     stopwatch: { name: '스탑워치', icon: '◷', price: 20, desc: '현재 단계의 시간을 멈춰요. 다음 단계나 재도전에는 해제돼요.' },
     magnifier: { name: '돋보기', icon: '⌕', price: 30, desc: '선을 그리는 동안 조각의 면적 %를 보여줘요. 이번 판 성공 또는 실패까지 유지돼요.' },
   });
   const natural = (n, fallback) => Number.isSafeInteger(n) && n >= 0 ? n : fallback;
-  function initWallet(s, now = Date.now()) {
-    s.coins = natural(s.coins, 50); s.hearts = Math.min(HEART_MAX, natural(s.hearts, HEART_MAX));
-    s.heartAt = Number.isFinite(s.heartAt) && s.heartAt >= 0 ? Math.min(s.heartAt, now) : now;
+  function initWallet(s) {
+    s.coins = natural(s.coins, 50);
+    delete s.hearts; delete s.heartAt;
     const old = s.items && typeof s.items === 'object' ? s.items : {};
     s.items = Object.fromEntries(Object.keys(ITEMS).map(k => [k, natural(old[k], 1)]));
-    regenerateHearts(s, now); return s;
+    return s;
   }
-  function regenerateHearts(s, now = Date.now()) {
-    if (s.hearts >= HEART_MAX) { s.heartAt = now; return; }
-    const elapsed = Math.max(0, now - s.heartAt), gained = Math.floor(elapsed / HEART_MS);
-    if (gained) { s.hearts = Math.min(HEART_MAX, s.hearts + gained); s.heartAt = s.hearts === HEART_MAX ? now : s.heartAt + gained * HEART_MS; }
-  }
-  function consumeHeart(s, now = Date.now()) {
-    regenerateHearts(s, now); if (s.hearts < 1) return false;
-    if (s.hearts === HEART_MAX) s.heartAt = now;
-    s.hearts--; return true;
-  }
-  function buy(s, key, now = Date.now()) {
-    regenerateHearts(s, now);
+  function buy(s, key) {
     const item = Object.hasOwn(ITEMS, key) ? ITEMS[key] : null;
-    const price = key === 'heart' ? 30 : item && item.price;
-    if (!price || s.coins < price || (key === 'heart' && s.hearts >= HEART_MAX)) return false;
+    const price = item && item.price;
+    if (!price || s.coins < price) return false;
     s.coins -= price;
-    if (key === 'heart') { s.hearts++; if (s.hearts === HEART_MAX) s.heartAt = now; }
-    else s.items[key]++;
+    s.items[key]++;
     return true;
   }
   function consume(s, key) {
     if (!Object.hasOwn(ITEMS, key) || !s.items || !(s.items[key] > 0)) return false;
     s.items[key]--; return true;
   }
-  const rewardRound = (s, bonus) => (s.coins += bonus ? 30 : 20);
   const stageCount = round => round > 0 && round % 3 === 0 ? 4 : 3;
 
   // Connect endpoints through transparent background only. No virtual connector
@@ -114,7 +99,7 @@
     for(let x=0;x<food.mw && next<count;x++) {sum+=columns[x];while(next<count && sum>=total*next/count){paths.push([{x:x+1,y:-16},{x:x+1,y:food.mh+16}]);next++;}}
     return paths;
   }
-  const api={ HEART_MAX,HEART_MS,ITEMS,stageCount,initWallet,regenerateHearts,consumeHeart,buy,consume,rewardRound,split,guides };
+  const api={ ITEMS,stageCount,initWallet,buy,consume,split,guides };
   if(typeof module==='object'&&module.exports)module.exports=api;
   else root.GameCore=api;
 })(globalThis);

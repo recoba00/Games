@@ -9,28 +9,28 @@ test('bonus stage occurs only on rounds 3, 6, 9, 12 and resets on new run', () =
   assert.equal(core.stageCount(1), 3);
 });
 test('wallet initializes missing fields without changing existing points or valid inventory', () => {
-  const s = { points: 123, coins: 7, items: { undo: 4 }, hearts: 2, heartAt: 100 };
+  const s = { points: 123, coins: 7, items: { undo: 4, helper: 4, stopwatch: 0 }, hearts: 2, heartAt: 100 };
   core.initWallet(s, 100);
-  assert.equal(s.points, 123); assert.equal(s.coins, 7); assert.equal(s.items.undo, 4);
-  assert.equal(s.items.helper, 1); assert.equal(s.hearts, 2);
+  assert.equal(s.points, 123); assert.equal(s.coins, 7);
+  assert.deepEqual(s.items, { helper: 4, stopwatch: 0, magnifier: 1 });
+  assert.equal(Object.hasOwn(s, 'hearts'), false);
+  assert.equal(Object.hasOwn(s, 'heartAt'), false);
 });
-test('heart recharge preserves partial interval and caps offline credit', () => {
-  const s = {}; core.initWallet(s, 100);
-  assert.equal(s.hearts, 5); assert.equal(s.coins, 50);
-  core.consumeHeart(s, 100); assert.equal(s.hearts, 4);
-  core.regenerateHearts(s, 100 + 25 * 60e3); assert.equal(s.hearts, 5);
-  core.consumeHeart(s, 100 + 25 * 60e3);
-  core.regenerateHearts(s, 100 + 30 * 60e3); assert.equal(s.hearts, 4);
-  core.regenerateHearts(s, 100 + 45 * 60e3); assert.equal(s.hearts, 5);
+test('new and malformed wallets get safe defaults without hearts or undo', () => {
+  const s = { coins: -1, items: { helper: -3, stopwatch: NaN } }; core.initWallet(s);
+  assert.equal(s.coins, 50);
+  assert.deepEqual(s.items, { helper: 1, stopwatch: 1, magnifier: 1 });
+  assert.equal(Object.hasOwn(s, 'hearts'), false);
 });
-test('purchase and consumption are atomic; insufficient coins or full hearts do not charge', () => {
+test('only supported items can be purchased and consumed without overdraft', () => {
   const s = {}; core.initWallet(s, 0);
   assert.equal(core.buy(s, 'heart', 0), false); assert.equal(s.coins, 50);
+  assert.equal(core.buy(s, 'undo'), false); assert.equal(s.coins, 50);
   assert.equal(core.buy(s, 'helper', 0), true); assert.equal(s.coins, 20); assert.equal(s.items.helper, 2);
   assert.equal(core.buy(s, 'magnifier', 0), false); assert.equal(s.coins, 20);
   assert.equal(core.buy(s, '__proto__', 0), false);
-  assert.equal(core.consume(s, 'undo'), true); assert.equal(core.consume(s, 'undo'), false);
-  core.rewardRound(s, true); assert.equal(s.coins, 50); assert.equal(s.points, undefined);
+  assert.equal(core.consume(s, 'stopwatch'), true); assert.equal(core.consume(s, 'stopwatch'), false);
+  assert.equal(s.coins, 20); assert.equal(s.points, undefined);
 });
 test('curved path uses its full shape instead of endpoint chord and conserves area', () => {
   const food = rect();

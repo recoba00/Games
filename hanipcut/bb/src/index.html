@@ -22,8 +22,7 @@
   </div>
 
   <div class="walletHud" id="walletHud">
-    <button id="btnHearts" class="walletPill" aria-label="하트와 상점"><span class="heartIcon">♥</span><b id="heartCount">5</b><small id="heartTimer">가득</small></button>
-    <button id="btnShop" class="walletPill" aria-label="코인과 아이템 상점"><span class="coinIcon">●</span><b id="coinCount">50</b><small>상점 +</small></button>
+    <div class="walletPill" role="status" aria-label="보유 코인"><span class="coinIcon" aria-hidden="true">●</span><b id="coinCount">50</b><small>코인</small></div>
   </div>
 
   <div class="layer" id="lobby">
@@ -46,13 +45,15 @@
     <div class="playTools" id="playTools">
       <div class="cutStatus" id="cutStatus"></div>
       <div class="boosterBar" id="boosterBar" role="group" aria-label="부스터 아이템">
-        <button class="booster" data-item="undo"><i>↶</i><span>취소</span><b>1</b></button>
+        <button class="booster cutMode" id="btnCutMode" aria-label="자르기 모드: 직선. 누르면 곡선으로 전환" aria-pressed="false">
+          <svg viewBox="0 0 56 26" aria-hidden="true"><rect class="modeStraight" x="1" y="1" width="25" height="24" rx="6"/><rect class="modeCurve" x="30" y="1" width="25" height="24" rx="6"/><path class="lineStraight" d="M7 18 20 8"/><path class="lineCurve" d="M35 17C35 2 49 24 50 8"/></svg>
+          <span>직선 <small>↔</small> 곡선</span>
+        </button>
         <button class="booster" data-item="helper"><i>✦</i><span>도우미</span><b>1</b></button>
         <button class="booster" data-item="stopwatch"><i>◷</i><span>스탑워치</span><b>1</b></button>
         <button class="booster" data-item="magnifier"><i>⌕</i><span>돋보기</span><b>1</b></button>
       </div>
     </div>
-    <button class="btn green judgeBtn hidden" id="btnJudge">판정하기</button>
     <div class="nav">
       <button class="navb" id="navSet"><span class="rbtn m"><img class="navSetIc" data-a="i_settings" alt=""></span><em>설정</em></button>
       <button class="navb" id="navHome"><span class="rbtn m"><img data-a="i_home" alt=""></span><em>홈</em></button>
