@@ -181,6 +181,7 @@ class GameplayTest(unittest.TestCase):
         self.page.reload(); self.page.wait_for_function('!!window.__bb')
         self.assertEqual(self.page.evaluate('S.coins'), 100)
         self.page.set_viewport_size({'width':360,'height':640})
+        self.page.wait_for_function('L.H===640')
         self.page.evaluate("document.getElementById('intro')?.remove(); G.tut=false; Pop.close(); G.stageNo=3; G.stage=3; startStage(); G.state='cutting'; refreshBoosters()")
         boxes = self.page.evaluate("""() => ['boosterBar','cutModes','walletHud'].map(id=>{
           const r=document.getElementById(id).getBoundingClientRect(); return {id,x:r.x,y:r.y,right:r.right,bottom:r.bottom};
@@ -357,6 +358,19 @@ class GameplayTest(unittest.TestCase):
         self.draw_bent_gesture(); self.page.mouse.up()
         self.assertEqual(self.page.evaluate('G.lines.length'), 1)
         self.assertGreater(self.page.evaluate('G.lines[0].length'), 10)
+
+    def test_claimed_missions_move_to_bottom_in_original_order(self):
+        r = self.page.evaluate("""() => {
+          Pop.close();S.login=true;S.notifHidden=true;
+          const m=Missions.state();m.plays=5;m.claimed={play1:true,play5:true};save();
+          openMissions();
+          const rows=[...Pop.el.querySelectorAll('.mrow[data-id]')].map(r=>[r.dataset.id,r.classList.contains('mdone'),r.querySelector('.mt b').textContent,(r.querySelector('button')||{}).textContent]);
+          Pop.close();return rows;
+        }""")
+        ids = [x[0] for x in r if x[0] != 'attend']
+        self.assertEqual(ids, ['bonus','rep','play20','time30','play1','play5'])
+        self.assertEqual([x[1] for x in r if x[0] in ('play1','play5')], [True, True])
+        self.assertEqual(r[-2][2], '첫 판 플레이 미션완료!'); self.assertEqual(r[-1][3], '완료')
 
 
 if __name__ == '__main__': unittest.main()

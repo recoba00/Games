@@ -19,7 +19,7 @@ const CFG = {
   // 광고 — 모두 내부 어드민 설정값 (연결 전 임시값). 광고를 못 불러오면 횟수 차감 없음
   adRetryPerGame: 3,    // 실패 이어하기(보상형 광고): 한 판에 N번, 일일 제한 없음
   adEveryN: 3,          // N판마다 팝업형 광고(전면 아님) — 결과 팝업에서 다음 판으로 넘어갈 때. 0 = 안 띄움
-  version: '0.11.1',
+  version: '0.11.2',
   // 출석 선물 7일 (날짜 기준: 1일차 = 튜토리얼 완료일, 그날 못 받으면 기간만료) — 1일차도 같은 '출석 선물'(이름 통일). ※ 2~7일차 금액은 기획 확정 전 임시값
   // 노란 테두리 = 보상이 가장 큰 2일 (자동 계산, 보통 3·7일차가 되게 금액 설정)
   attend: [5, 1, 2, 1, 1, 1, 5], attendNote: ['추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용'],   // 칸 둘째 줄 (기획 확정 전 자리표시)
@@ -1231,8 +1231,13 @@ function openMissions(onDone) {
   const bar = (x) => `<i class="mbar"><i style="width:${Math.round(Math.min(1, x.cur / x.max) * 100)}%"></i></i>`;
   const row = (x, wide) => `<div class="mrow ${wide ? 'wide' : ''} ${x.coins ? 'withCoins' : ''} ${x.ready ? 'can' : ''}" data-id="${x.id}"><div class="minfo"><div class="mt"><b>${x.name}</b><span class="rp">${x.p}P${x.coins ? ` + 코인 ${x.coins}개` : ''}</span></div>
     <div class="mm">${x.id === 'notif' ? '' : bar(x)}<span>${x.meta}</span></div></div>${btn(x)}</div>`;
+  // Figma 3167:63654: 받은(완료) 미션은 맨 아래로, 완료 UI로. 완료끼리는 원래 순서(보너스 → 반복 → 일일) 유지
+  const resetAt = (id) => id === 'play20' ? '14시' : '0시';
+  const doneRow = (x) => `<div class="mrow mdone" data-id="${x.id}"><div class="minfo"><div class="mt"><b>${x.name} 미션완료!</b></div>
+    <div class="mm"><span>${x.id === 'notif' ? '한 번만 받을 수 있는 미션이에요' : `미션은 ${resetAt(x.id)} 초기화돼요`}</span></div></div><button class="btn s done" disabled>완료</button></div>`;
   const render = () => {
-    const l = Missions.list(), left = l.daily.filter(x => !x.claimed).length;
+    const l = Missions.list(), left = l.daily.filter(x => !x.claimed).length, done = [];
+    const put = (x, wide) => { if (x.claimed) { done.push(x); return ''; } return row(x, wide); };
     let h = '';
     const ad = Attend.today();
     if (ad) h += `<div class="mrow wide mgift can" data-id="attend"><div class="minfo"><div class="mt"><b>출석 선물</b><span class="rp">${Attend.pay(ad)}P</span></div><div class="mm"><span>토스포인트 · ${ad}일차 출석 보상 · 오늘 받을 수 있어요</span></div></div>
@@ -1241,9 +1246,11 @@ function openMissions(onDone) {
       if (ai >= 1 && ai <= 7 && Attend.st().got[ai]) { const nx = ai < 7 ? ai + 1 : 0;
         h += `<div class="mrow wide" data-id="attend"><div class="minfo"><div class="mt"><b>출석 선물</b>${nx ? `<span class="rp">내일 ${Attend.pay(nx)}P</span>` : ''}</div><div class="mm"><span>${nx ? `오늘 받았어요 · 내일(${nx}일차)에 또 받아요` : '7일 출석을 모두 마쳤어요'}</span></div></div>
         <button class="btn s blue" data-attview>출석표 보기</button></div>`; } }
-    h += row(l.bonus, true);
-    h += `<div class="mlab"><b>반복 미션</b><span>하루 동안 계속</span></div>${row(l.rep)}`;
-    h += `<div class="mlab"><b>일일 미션</b><span>남은 ${left}개</span></div>${l.daily.map(x => row(x)).join('')}`;
+    h += put(l.bonus, true);
+    const repH = put(l.rep), dailyH = l.daily.map(x => put(x)).join('');
+    if (repH) h += `<div class="mlab"><b>반복 미션</b><span>하루 동안 계속</span></div>${repH}`;
+    if (dailyH) h += `<div class="mlab"><b>일일 미션</b><span>남은 ${left}개</span></div>${dailyH}`;
+    h += done.map(doneRow).join('');
     body.innerHTML = h;
     // 하나씩 받기: 받으면 다시 그리고, 다음으로 받을 수 있는 줄로 부드럽게 이동
     const claimOne = (id) => { const n = id === 'attend' ? Attend.claim() : Missions.claim(id, true); if (!n) return; Platform.haptic('tap'); rewardToast(n, id==='rep'?REP_COINS:0); render(); refreshLobby();
