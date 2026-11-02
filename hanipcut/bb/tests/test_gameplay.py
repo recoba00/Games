@@ -337,7 +337,7 @@ class GameplayTest(unittest.TestCase):
           return {before,curveInstr:document.getElementById('instr').textContent,label:document.getElementById('stageLabel').textContent,on:badge('helper'),
             plank:getComputedStyle(document.getElementById('stagePlank')).display,coin:document.getElementById('coinCount').textContent};
         }""")
-        self.assertEqual(r['before'], {'helper':'2','stopwatch':'AD','magnifier':'1','instr':'직선으로 그림을\n정확하게 1/2로 나눠요'})
+        self.assertEqual(r['before'], {'helper':'+2','stopwatch':'AD','magnifier':'+1','instr':'직선으로 그림을\n정확하게 1/2로 나눠요'})
         self.assertEqual(r['curveInstr'], '곡선으로 그림을\n정확하게 1/3으로 나눠요')
         self.assertEqual(r['label'], '그림을 1/3으로 나눠요')
         self.assertEqual(r['on'], 'ON')

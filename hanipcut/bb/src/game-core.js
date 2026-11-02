@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
   const ITEMS = Object.freeze({
-    helper: { name: '도우미', icon: '✦', price: 30, desc: '같은 면적으로 나누는 실선 가이드. 이번 판 성공 또는 실패까지 유지돼요.' },
+    helper: { name: '도우미', icon: '✦', price: 30, desc: '같은 면적으로 나누는 점선 가이드. 이번 판 성공 또는 실패까지 유지돼요.' },
     stopwatch: { name: '스탑워치', icon: '◷', price: 20, desc: '현재 단계의 시간을 멈춰요. 다음 단계나 재도전에는 해제돼요.' },
     magnifier: { name: '돋보기', icon: '⌕', price: 30, desc: '선을 그리는 동안 조각의 면적 %를 보여줘요. 이번 판 성공 또는 실패까지 유지돼요.' },
   });

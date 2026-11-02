@@ -921,9 +921,9 @@ function refreshBoosters() {
   const usable=G.state==='cutting'&&!G.paused&&!G.tut&&!Pop.el&&!G.dragging;
   document.querySelectorAll('[data-item]').forEach(b=>{
     const key=b.dataset.item, active=key==='stopwatch'?G.frozen:!!G.effects[key], n=S.items[key], badge=b.querySelector('.ibadge');
-    // Figma: 보유 0개 = 파란 AD 뱃지, 보유 = 빨간 개수 뱃지, 사용 중 = 초록 ON
+    // Figma: 보유 0개 = 파란 AD 뱃지, 보유 = 빨간 '+보유 수량' 뱃지, 사용 중 = 초록 ON
     b.classList.toggle('active',active); b.classList.toggle('faded',!active&&(G.tut||G.state!=='cutting'));
-    badge.textContent=active?'ON':n?String(n):'AD'; badge.className=`ibadge${active?' on':n?'':' ad'}`;
+    badge.textContent=active?'ON':n?`+${n}`:'AD'; badge.className=`ibadge${active?' on':n?'':' ad'}`;
     b.disabled=!usable||active;
     b.setAttribute('aria-label',`${GameCore.ITEMS[key].name}, ${active?'사용 중':n+'개'+(!n?', 코인 또는 광고로 사용':'')}`);
     b.title=GameCore.ITEMS[key].desc;
@@ -948,7 +948,7 @@ function useBooster(key) {
   save();refreshWallet();if(G.effects.magnifier)refreshPreview();refreshBoosters();Platform.haptic('tap');return true;
 }
 let itemAdBusy=false;
-const ITEM_POP_DESC={ helper:'도우미는 같은 면적으로 나누는 실선 가이드로\n이번 판 성공 또는 실패까지 유지돼요', stopwatch:'스탑워치는 현재 단계의 시간을 멈춰요\n다음 단계나 재도전에는 해제돼요', magnifier:'돋보기는 조각의 면적 %를 보여줘요\n이번 판 성공 또는 실패까지 유지돼요' };
+const ITEM_POP_DESC={ helper:'도우미는 같은 면적으로 나누는 점선 가이드로\n이번 판 성공 또는 실패까지 유지돼요', stopwatch:'스탑워치는 현재 단계의 시간을 멈춰요\n다음 단계나 재도전에는 해제돼요', magnifier:'돋보기는 조각의 면적 %를 보여줘요\n이번 판 성공 또는 실패까지 유지돼요' };
 function openItemUse(key) {
   const item=GameCore.ITEMS[key],flow=G.flow,wasPaused=G.paused;
   G.paused=true;cancelDrag();refreshBoosters();
