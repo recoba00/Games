@@ -77,14 +77,14 @@ class GameplayTest(unittest.TestCase):
 
     def test_toggle_curve_keeps_full_pointer_path_and_existing_cuts(self):
         self.page.evaluate("G.stage=1;startStage();G.state='cutting';useBooster('magnifier')")
-        self.page.locator('#btnCutMode').click()
+        self.page.locator('#btnCurve').click()
         self.draw_bent_gesture()
         self.assertGreater(self.page.evaluate('G.dragPath.length'), 5)
         self.page.mouse.up()
         self.assertEqual(self.page.evaluate('G.state'), 'cutting')
         self.assertGreater(self.page.evaluate('G.lines[0].length'), 5)
         self.assertIn('%', self.page.locator('#areaPreview').inner_text())
-        self.page.locator('#btnCutMode').click()
+        self.page.locator('#btnStraight').click()
         self.assertEqual(self.page.evaluate('S.cutMode'), 'straight')
         self.assertEqual(self.page.evaluate('G.lines.length'), 1)
         self.assertEqual(self.page.evaluate('G.cutsLeft'), 1)
@@ -182,7 +182,7 @@ class GameplayTest(unittest.TestCase):
         self.assertEqual(self.page.evaluate('S.coins'), 100)
         self.page.set_viewport_size({'width':360,'height':640})
         self.page.evaluate("document.getElementById('intro')?.remove(); G.tut=false; Pop.close(); G.stageNo=3; G.stage=3; startStage(); G.state='cutting'; refreshBoosters()")
-        boxes = self.page.evaluate("""() => ['boosterBar','btnCutMode','walletHud'].map(id=>{
+        boxes = self.page.evaluate("""() => ['boosterBar','cutModes','walletHud'].map(id=>{
           const r=document.getElementById(id).getBoundingClientRect(); return {id,x:r.x,y:r.y,right:r.right,bottom:r.bottom};
         })""")
         for b in boxes:
@@ -257,7 +257,7 @@ class GameplayTest(unittest.TestCase):
           Object.defineProperty(document,'hidden',{configurable:true,value:false});
           document.dispatchEvent(new Event('visibilitychange'));
           const after={on:G.effects.helper,paused:G.paused,coins:S.coins,count:S.items.helper};
-          const controls=['btnCutMode','[data-item="stopwatch"]','[data-item="magnifier"]'].map(s=>document.querySelector(s.startsWith('[')?s:'#'+s).disabled);
+          const controls=['btnCurve','[data-item="stopwatch"]','[data-item="magnifier"]'].map(s=>document.querySelector(s.startsWith('[')?s:'#'+s).disabled);
           delete document.hidden;return {during,after,controls};
         }""")
         self.assertEqual(r, {'during':{'on':True,'paused':True},
@@ -317,15 +317,46 @@ class GameplayTest(unittest.TestCase):
                              'reset':{'points':10,'coins':200,'ready':False},'points':11,'coins':210})
 
     def test_cut_mode_persists_but_tutorial_uses_straight(self):
-        self.page.locator('#btnCutMode').click()
-        self.assertEqual(self.page.locator('#btnCutMode').get_attribute('aria-pressed'), 'true')
+        self.page.locator('#btnCurve').click()
+        self.assertEqual(self.page.locator('#btnCurve').get_attribute('aria-pressed'), 'true')
+        self.assertEqual(self.page.locator('#btnStraight').get_attribute('aria-pressed'), 'false')
         self.page.reload();self.page.wait_for_function('!!window.__bb')
         self.assertEqual(self.page.evaluate('S.cutMode'), 'curve')
         r = self.page.evaluate("""() => {
           document.getElementById('intro')?.remove();G.tut=true;G.state='cutting';refreshBoosters();
-          toggleCutMode();return {mode:cutMode(),saved:S.cutMode,disabled:document.getElementById('btnCutMode').disabled};
+          toggleCutMode();return {mode:cutMode(),saved:S.cutMode,disabled:document.getElementById('btnCurve').disabled};
         }""")
         self.assertEqual(r, {'mode':'straight','saved':'curve','disabled':True})
+
+    def test_figma_ui_fixed_instruction_and_item_badges(self):
+        r = self.page.evaluate("""() => {
+          S.items={helper:2,stopwatch:0,magnifier:1};refreshBoosters();
+          const badge=k=>document.querySelector(`[data-item="${k}"] .ibadge`).textContent;
+          const before={helper:badge('helper'),stopwatch:badge('stopwatch'),magnifier:badge('magnifier'),instr:document.getElementById('instr').textContent};
+          setCutMode('curve');G.stage=1;startStage();G.state='cutting';useBooster('helper');
+          return {before,curveInstr:document.getElementById('instr').textContent,label:document.getElementById('stageLabel').textContent,on:badge('helper'),
+            plank:getComputedStyle(document.getElementById('stagePlank')).display,coin:document.getElementById('coinCount').textContent};
+        }""")
+        self.assertEqual(r['before'], {'helper':'2','stopwatch':'AD','magnifier':'1','instr':'직선으로 그림을\n정확하게 1/2로 나눠요'})
+        self.assertEqual(r['curveInstr'], '곡선으로 그림을\n정확하게 1/3으로 나눠요')
+        self.assertEqual(r['label'], '그림을 1/3으로 나눠요')
+        self.assertEqual(r['on'], 'ON')
+        self.assertEqual(r['plank'], 'none')
+        self.assertEqual(r['coin'], '100')
+
+    def test_curve_is_smoothed_and_keeps_endpoints(self):
+        r = self.page.evaluate("""() => {
+          const raw=[];for(let i=0;i<=40;i++)raw.push({x:i*8,y:100+(i%2?3:-3)});
+          const out=smoothPath(raw);
+          const zig=p=>p.slice(2).reduce((n,q,i)=>n+Math.abs(q.y-2*p[i+1].y+p[i].y),0)/(p.length-2);
+          return {first:out[0],last:out[out.length-1],rawZig:zig(raw),outZig:zig(out)};
+        }""")
+        self.assertEqual(r['first'], {'x':0,'y':97}); self.assertEqual(r['last'], {'x':320,'y':97})
+        self.assertLess(r['outZig'], r['rawZig'] * 0.25)
+        self.page.locator('#btnCurve').click()
+        self.draw_bent_gesture(); self.page.mouse.up()
+        self.assertEqual(self.page.evaluate('G.lines.length'), 1)
+        self.assertGreater(self.page.evaluate('G.lines[0].length'), 10)
 
 
 if __name__ == '__main__': unittest.main()

@@ -16,13 +16,10 @@
 <div id="app">
   <canvas id="game"></canvas>
   <div class="hdr" id="hdr">
+    <div class="hcoin" id="walletHud" role="status" aria-label="보유 코인"><img class="hcoinIc" data-a="coin_star" alt=""><b id="coinCount">0</b></div>
     <button class="tbtn" id="btnRank">랭킹</button>
     <span class="tbw"><button class="tbtn" id="btnMis">미션</button><i class="cnt" id="hdrDot">0/5</i><span class="mtip" id="missionTip">보상받기</span></span>
-    <div class="splank" id="stagePlank">스테이지.1</div>
-  </div>
-
-  <div class="walletHud" id="walletHud">
-    <div class="walletPill" role="status" aria-label="보유 코인"><span class="coinIcon" aria-hidden="true">●</span><b id="coinCount">50</b><small>코인</small></div>
+    <div class="splank hidden" id="stagePlank" aria-hidden="true"></div>
   </div>
 
   <div class="layer" id="lobby">
@@ -43,20 +40,21 @@
     <div class="hint" id="hint"></div>
     <div class="areaPreview hidden" id="areaPreview" aria-live="polite"></div>
     <div class="playTools" id="playTools">
-      <div class="cutStatus" id="cutStatus"></div>
-      <div class="boosterBar" id="boosterBar" role="group" aria-label="부스터 아이템">
-        <button class="booster cutMode" id="btnCutMode" aria-label="자르기 모드: 직선. 누르면 곡선으로 전환" aria-pressed="false">
-          <svg viewBox="0 0 56 26" aria-hidden="true"><rect class="modeStraight" x="1" y="1" width="25" height="24" rx="6"/><rect class="modeCurve" x="30" y="1" width="25" height="24" rx="6"/><path class="lineStraight" d="M7 18 20 8"/><path class="lineCurve" d="M35 17C35 2 49 24 50 8"/></svg>
-          <span>직선 <small>↔</small> 곡선</span>
-        </button>
-        <button class="booster" data-item="helper"><i>✦</i><span>도우미</span><b>1</b></button>
-        <button class="booster" data-item="stopwatch"><i>◷</i><span>스탑워치</span><b>1</b></button>
-        <button class="booster" data-item="magnifier"><i>⌕</i><span>돋보기</span><b>1</b></button>
+      <div class="cutModes" id="cutModes" role="group" aria-label="자르기 방식">
+        <button class="btn m cm" id="btnStraight" data-mode="straight" aria-pressed="true">직선 긋기</button>
+        <button class="btn m cm off" id="btnCurve" data-mode="curve" aria-pressed="false">곡선 긋기</button>
       </div>
     </div>
     <div class="nav">
-      <button class="navb" id="navSet"><span class="rbtn m"><img class="navSetIc" data-a="i_settings" alt=""></span><em>설정</em></button>
-      <button class="navb" id="navHome"><span class="rbtn m"><img data-a="i_home" alt=""></span><em>홈</em></button>
+      <div class="navg">
+        <button class="navb" id="navSet"><span class="rbtn m"><img class="navSetIc" data-a="i_settings" alt=""></span><em>설정</em></button>
+        <button class="navb" id="navHome"><span class="rbtn m"><img data-a="i_home" alt=""></span><em>홈</em></button>
+      </div>
+      <div class="navg" id="boosterBar" role="group" aria-label="아이템">
+        <button class="navb item" data-item="helper"><span class="rbtn m"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 1C13.1046 1 14 1.89543 14 3C14 3.78065 13.5517 4.45473 12.8994 4.78418V7.5H16.5C18.5472 7.5 20.2342 9.03799 20.4707 11.0215C20.5449 11.0071 20.6218 11 20.7002 11H21.2998C21.9625 11 22.5 11.5375 22.5 12.2002V15.2998C22.5 15.9625 21.9625 16.5 21.2998 16.5H20.7002C20.6319 16.5 20.5651 16.4924 20.5 16.4814V17C20.5 19.2091 18.7091 21 16.5 21H7.5C5.29086 21 3.5 19.2091 3.5 17V16.4814C3.43486 16.4924 3.36806 16.5 3.2998 16.5H2.7002C2.03745 16.5 1.5 15.9625 1.5 15.2998V12.2002C1.5 11.5375 2.03745 11 2.7002 11H3.2998C3.37786 11 3.45442 11.0073 3.52832 11.0215C3.76479 9.03794 5.45279 7.5 7.5 7.5H11.0996V4.7832C10.448 4.45353 10 3.78019 10 3C10 1.89543 10.8954 1 12 1ZM10.1504 16.4004C9.65337 16.4004 9.25005 16.8028 9.25 17.2998C9.25 17.7969 9.65333 18.2002 10.1504 18.2002H13.8496C14.3467 18.2002 14.75 17.7969 14.75 17.2998C14.7499 16.8028 14.3466 16.4004 13.8496 16.4004H10.1504ZM9.2998 11C8.36092 11 7.59961 11.7613 7.59961 12.7002C7.59971 13.639 8.36099 14.4004 9.2998 14.4004C10.2385 14.4003 10.9999 13.6389 11 12.7002C11 11.7614 10.2386 11.0001 9.2998 11ZM14.7002 11C13.7613 11 13 11.7613 13 12.7002C13.0001 13.639 13.7614 14.4004 14.7002 14.4004C15.6389 14.4003 16.4003 13.6389 16.4004 12.7002C16.4004 11.7614 15.639 11.0001 14.7002 11Z" fill="#4A2C10"/></svg></span><em>도우미</em><i class="ibadge" aria-hidden="true">1</i></button>
+        <button class="navb item" data-item="stopwatch"><span class="rbtn m"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5C10.22 4.5 8.48 5.028 7 6.017 5.52 7.006 4.366 8.411 3.685 10.056 3.004 11.7 2.826 13.51 3.173 15.256 3.52 17.002 4.377 18.605 5.636 19.864 6.895 21.123 8.498 21.98 10.244 22.327 11.99 22.674 13.8 22.496 15.444 21.815 17.089 21.134 18.494 19.98 19.483 18.5 20.472 17.02 21 15.28 21 13.5 20.997 11.114 20.048 8.826 18.361 7.139 16.674 5.452 14.386 4.503 12 4.5ZM16.281 10.281 12.531 14.031C12.461 14.1 12.378 14.156 12.287 14.193 12.196 14.231 12.099 14.25 12 14.25 11.902 14.25 11.804 14.231 11.713 14.193 11.622 14.156 11.539 14.1 11.469 14.031 11.4 13.961 11.344 13.878 11.307 13.787 11.269 13.696 11.25 13.599 11.25 13.5 11.25 13.402 11.269 13.304 11.307 13.213 11.344 13.122 11.4 13.039 11.469 12.969L15.219 9.219C15.289 9.15 15.372 9.094 15.463 9.057 15.554 9.019 15.652 9 15.75 9 15.849 9 15.946 9.019 16.037 9.057 16.128 9.094 16.211 9.15 16.281 9.219 16.35 9.289 16.406 9.372 16.443 9.463 16.481 9.554 16.5 9.651 16.5 9.75 16.5 9.849 16.481 9.946 16.443 10.037 16.406 10.128 16.35 10.211 16.281 10.281ZM9 2.25C9 2.051 9.079 1.86 9.22 1.72 9.36 1.579 9.551 1.5 9.75 1.5H14.25C14.449 1.5 14.64 1.579 14.78 1.72 14.921 1.86 15 2.051 15 2.25 15 2.449 14.921 2.64 14.78 2.78 14.64 2.921 14.449 3 14.25 3H9.75C9.551 3 9.36 2.921 9.22 2.78 9.079 2.64 9 2.449 9 2.25Z" fill="#4A2C10"/></svg></span><em>스탑워치</em><i class="ibadge" aria-hidden="true">1</i></button>
+        <button class="navb item" data-item="magnifier"><span class="rbtn m"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.75 10.5C15.75 11.538 15.442 12.553 14.865 13.417 14.288 14.28 13.468 14.953 12.509 15.35 11.55 15.748 10.494 15.852 9.476 15.649 8.457 15.446 7.522 14.946 6.788 14.212 6.053 13.478 5.553 12.542 5.351 11.524 5.148 10.506 5.252 9.45 5.65 8.491 6.047 7.531 6.72 6.711 7.583 6.135 8.447 5.558 9.462 5.25 10.5 5.25 11.892 5.25 13.228 5.803 14.212 6.787 15.197 7.772 15.75 9.107 15.75 10.5ZM21.531 21.53C21.461 21.6 21.378 21.655 21.287 21.693 21.196 21.731 21.099 21.75 21 21.75 20.902 21.75 20.804 21.731 20.713 21.693 20.622 21.655 20.539 21.6 20.469 21.53L15.776 16.836C14.144 18.194 12.052 18.871 9.933 18.725 7.815 18.579 5.835 17.622 4.404 16.054 2.974 14.485 2.203 12.425 2.252 10.303 2.301 8.18 3.167 6.158 4.669 4.658 6.171 3.157 8.193 2.294 10.316 2.246 12.438 2.199 14.498 2.972 16.065 4.404 17.632 5.836 18.587 7.817 18.731 9.935 18.875 12.053 18.197 14.145 16.838 15.776L21.531 20.469C21.6 20.539 21.656 20.622 21.693 20.713 21.731 20.804 21.751 20.901 21.751 21 21.751 21.098 21.731 21.196 21.693 21.287 21.656 21.378 21.6 21.461 21.531 21.53ZM10.5 17.25C11.835 17.25 13.14 16.854 14.25 16.112 15.36 15.371 16.225 14.316 16.736 13.083 17.247 11.85 17.381 10.492 17.12 9.183 16.86 7.874 16.217 6.671 15.273 5.727 14.329 4.783 13.126 4.14 11.817 3.879 10.508 3.619 9.15 3.753 7.917 4.264 6.684 4.774 5.629 5.64 4.888 6.75 4.146 7.86 3.75 9.165 3.75 10.5 3.752 12.289 4.464 14.005 5.729 15.271 6.995 16.536 8.71 17.248 10.5 17.25Z" fill="#4A2C10"/></svg></span><em>돋보기</em><i class="ibadge" aria-hidden="true">1</i></button>
+      </div>
     </div>
   </div>
 

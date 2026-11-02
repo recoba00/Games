@@ -19,7 +19,7 @@ const CFG = {
   // 광고 — 모두 내부 어드민 설정값 (연결 전 임시값). 광고를 못 불러오면 횟수 차감 없음
   adRetryPerGame: 3,    // 실패 이어하기(보상형 광고): 한 판에 N번, 일일 제한 없음
   adEveryN: 3,          // N판마다 팝업형 광고(전면 아님) — 결과 팝업에서 다음 판으로 넘어갈 때. 0 = 안 띄움
-  version: '0.11.0',
+  version: '0.11.1',
   // 출석 선물 7일 (날짜 기준: 1일차 = 튜토리얼 완료일, 그날 못 받으면 기간만료) — 1일차도 같은 '출석 선물'(이름 통일). ※ 2~7일차 금액은 기획 확정 전 임시값
   // 노란 테두리 = 보상이 가장 큰 2일 (자동 계산, 보통 3·7일차가 되게 금액 설정)
   attend: [5, 1, 2, 1, 1, 1, 5], attendNote: ['추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용'],   // 칸 둘째 줄 (기획 확정 전 자리표시)
@@ -311,7 +311,7 @@ function fit() {
   const popTop = tossNav ? L.hdrTop + 44 : sTop / s, popBot = safeInset('bottom') / s, vis = L.H - popTop - popBot;
   app.style.setProperty('--pop-top', popTop + 'px'); app.style.setProperty('--pop-bot', popBot + 'px'); app.style.setProperty('--pop-max', Math.round(vis - 24) + 'px');
   for (const c of [gcv, fcv]) { c.width = Math.round(360 * s * L.dpr); c.height = Math.round(L.H * s * L.dpr); c.style.width = '360px'; c.style.height = L.H + 'px'; }
-  const top = L.hdrTop + 182, bot = L.H - L.bottom - 140;
+  const top = L.hdrTop + 209, bot = L.H - L.bottom - 145;   // 멘트 아래 ~ [직선/곡선 긋기] 위 (Figma 3167:63204)
   L.foodCX = 180; L.foodCY = Math.round((top + bot) / 2);
   Food.prepare();
   $('ring').style.top = (L.foodCY - 58) + 'px'; $('stageLabel').style.top = (L.foodCY - 58 - 48) + 'px'; $('ready').style.top = (L.foodCY - 22) + 'px';
@@ -397,9 +397,27 @@ const Food = {
 // Accepted paths and previews share one region map and preserve all food pixels.
 function computePieces(paths) { return GameCore.split(Food, paths, CFG.crumbRatio); }
 function pathLength(path) { return path.reduce((n,p,i) => i ? n + Math.hypot(p.x-path[i-1].x,p.y-path[i-1].y) : n, 0); }
+// Draw through segment midpoints with quadratic curves so finger jitter never shows as jagged dots.
 function strokePath(c, path, ox = Food.ox(), oy = Food.oy()) {
-  if (!path.length) return; c.beginPath();
-  path.forEach((p,i) => i ? c.lineTo(ox+p.x,oy+p.y) : c.moveTo(ox+p.x,oy+p.y)); c.stroke();
+  const n = path.length; if (!n) return; c.beginPath(); c.moveTo(ox + path[0].x, oy + path[0].y);
+  if (n < 3) { for (let i = 1; i < n; i++) c.lineTo(ox + path[i].x, oy + path[i].y); c.stroke(); return; }
+  for (let i = 1; i < n - 1; i++) { const p = path[i], q = path[i + 1]; c.quadraticCurveTo(ox + p.x, oy + p.y, ox + (p.x + q.x) / 2, oy + (p.y + q.y) / 2); }
+  c.lineTo(ox + path[n - 1].x, oy + path[n - 1].y); c.stroke();
+}
+// Chaikin corner cutting (endpoints kept) + thinning: the accepted curve equals what the player saw.
+function smoothPath(path, iter = 2, minGap = 1.2) {
+  if (path.length < 3) return path.slice();
+  let pts = path;
+  for (let k = 0; k < iter; k++) {
+    const out = [pts[0]];
+    for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1];
+      if (i > 0) out.push({ x: a.x * 0.75 + b.x * 0.25, y: a.y * 0.75 + b.y * 0.25 });
+      if (i < pts.length - 2) out.push({ x: a.x * 0.25 + b.x * 0.75, y: a.y * 0.25 + b.y * 0.75 }); }
+    out.push(pts[pts.length - 1]); pts = out;
+  }
+  const thin = [pts[0]];
+  for (let i = 1; i < pts.length - 1; i++) { const l = thin[thin.length - 1]; if (Math.hypot(pts[i].x - l.x, pts[i].y - l.y) >= minGap) thin.push(pts[i]); }
+  thin.push(pts[pts.length - 1]); return thin;
 }
 function scoreOf(stage, res, timeRatio) {
   const N = stage.pieces, ideal = res.total / N;
@@ -739,9 +757,12 @@ function renderPlay(c) {
   } else {
     Food.draw(c, ox, oy, 1);
     if(G.effects.helper && !G.tut) {
+      // Figma 3180:66179: 초록 점선 + 흰 테두리
       if(!G.guidePaths) G.guidePaths=GameCore.guides(Food,CFG.stages[G.stage].pieces);
-      c.save(); c.strokeStyle='#238b5d'; c.lineWidth=2.5; c.shadowColor='#fff'; c.shadowBlur=4;
-      for(const path of G.guidePaths) strokePath(c,path); c.restore();
+      c.save(); c.lineJoin='round'; c.setLineDash([9,6]);
+      c.strokeStyle='rgba(255,255,255,.95)'; c.lineWidth=5; c.lineCap='round'; for(const path of G.guidePaths) strokePath(c,path);
+      c.strokeStyle='#2e9a22'; c.lineWidth=2.5; c.lineCap='butt'; for(const path of G.guidePaths) strokePath(c,path);
+      c.restore();
     }
     c.strokeStyle='rgba(255,255,255,.95)'; c.lineWidth=3.2; c.lineCap='round'; c.lineJoin='round';
     for(const path of G.lines) strokePath(c,path);
@@ -751,18 +772,13 @@ function renderPlay(c) {
     c.strokeStyle='#fff'; c.lineWidth=8*a+2; c.lineCap='round'; c.lineJoin='round'; strokePath(c,f.ln); c.restore();
   }
   c.restore();
-  // 칼 궤적
-  if (G.trail.length > 1 && cutMode()==='curve') {
-    const now = performance.now(); const pts = G.trail;
-    for (let pass = 0; pass < 2; pass++) for (let i = 1; i < pts.length; i++) { const a = 1 - (now - pts[i].t) / 160; if (a <= 0) continue; const w = i / pts.length;
-      c.strokeStyle = pass ? `rgba(255,255,255,${a})` : `rgba(255,154,46,${a * 0.4})`; c.lineWidth = pass ? 2 + 7 * w : 8 + 12 * w; c.lineCap = 'round';
-      c.beginPath(); c.moveTo(pts[i - 1].x, pts[i - 1].y); c.lineTo(pts[i].x, pts[i].y); c.stroke(); }
-    const tip = pts[pts.length - 1]; c.fillStyle = '#ffe08a'; drawStar(c, tip.x, tip.y, 8);
-  }
+  // 칼 궤적: 한 번에 이어 그리는 매끈한 선 (예전: 마디마다 따로 그려 점처럼 끊겨 보임)
   if (G.dragging && G.dragPath.length>1) {
-    c.save(); c.strokeStyle='#fff'; c.lineWidth=3; c.lineCap='round'; c.lineJoin='round';
-    c.shadowColor='#ff9a2e';c.shadowBlur=8;
-    strokePath(c,G.dragPath,0,0); c.restore();
+    const curve=cutMode()==='curve', pts=curve?smoothPath(G.dragPath,2,0.8):G.dragPath;
+    c.save(); c.lineCap='round'; c.lineJoin='round';
+    if(curve){ c.strokeStyle='rgba(255,154,46,.35)'; c.lineWidth=9; strokePath(c,pts,0,0); }
+    c.strokeStyle='#fff'; c.lineWidth=3.2; c.shadowColor='#ff9a2e'; c.shadowBlur=8; strokePath(c,pts,0,0); c.restore();
+    if(curve){ const tip=G.dragPath[G.dragPath.length-1]; c.fillStyle='#ffe08a'; drawStar(c,tip.x,tip.y,7); }
   }
 }
 
@@ -776,11 +792,11 @@ const Screen = {
 const X_SVG = '<svg width="22" height="22" viewBox="9 9 22 22" aria-hidden="true"><path d="M26.19 12.28a1.53 1.53 0 0 1 1.08 2.61l-5.1 5.11 5.1 5.1a1.53 1.53 0 0 1-2.17 2.17L20 22.17l-5.1 5.1a1.53 1.53 0 0 1-2.17-2.17l5.1-5.1-5.1-5.1a1.53 1.53 0 0 1 2.17-2.17L20 17.83l5.1-5.1c.29-.29.68-.45 1.09-.45Z" fill="#fff" stroke="#4A2C10" stroke-width="1"/></svg>';
 const Pop = {
   el: null,
-  open({ title, body, head = null, foot = null, below = '', cls = 'enter', close = true, onClose = null }) {
+  open({ title, body, head = null, foot = null, below = '', cls = 'enter', close = true, onClose = null, coins = false }) {
     cancelDrag();
     this.close(true);
     const dim = document.createElement('div'); dim.className = 'dim'; dim.dataset.t = title;
-    dim.innerHTML = `<div class="pop ${cls}"><div class="ph"><h3>${title}</h3>${close ? `<button class="sq" data-x aria-label="닫기">${X_SVG}</button>` : ''}</div>
+    dim.innerHTML = `<div class="pop ${cls}"><div class="ph"><h3>${title}</h3>${coins ? `<span class="pcoin" aria-label="보유 코인"><img data-a="coin_star" alt=""><b>${S.coins.toLocaleString('ko-KR')}</b></span>` : ''}${close ? `<button class="sq" data-x aria-label="닫기">${X_SVG}</button>` : ''}</div>
       <div class="pb"><div class="phd"></div><div class="pbody"></div><div class="pft"></div></div></div>${below}`;
     const put = (sel, c) => { const el = dim.querySelector(sel); if (c == null) { el.remove(); return; } if (typeof c === 'string') el.innerHTML = c; else el.appendChild(c); };
     put('.phd', head); put('.pbody', body); put('.pft', foot);
@@ -888,32 +904,39 @@ function refreshWallet() {
   $('coinCount').textContent=S.coins.toLocaleString('ko-KR');
 }
 function cutMode() { return G.tut ? 'straight' : S.cutMode; }
-function toggleCutMode() {
-  if(G.tut||G.state!=='cutting'||G.paused||Pop.el||G.dragging)return;
-  S.cutMode=S.cutMode==='curve'?'straight':'curve';save();refreshBoosters();Platform.haptic('tap');
+function canPickMode() { return !G.tut&&(G.state==='cutting'||G.state==='countdown')&&!G.paused&&!Pop.el&&!G.dragging; }
+function setCutMode(mode) {
+  if(!canPickMode()||(mode!=='curve'&&mode!=='straight'))return false;
+  if(S.cutMode===mode)return true;
+  S.cutMode=mode;save();refreshBoosters();setInstr();Sfx.pop();Platform.haptic('tap');return true;
 }
+function toggleCutMode() { return setCutMode(S.cutMode==='curve'?'straight':'curve'); }
+// Figma 멘트 고정: "{직선|곡선}으로 그림을\n정확하게 1/N로 나눠요"
+const roJosa=n=>/[036]$/.test(String(n))?'으로':'로';
+function cutGoal(n){ return `1/${n}${roJosa(n)} 나눠요`; }
+function setInstr(){ if(G.state==='done')return; const n=CFG.stages[G.stage].pieces; $('instr').textContent=`${cutMode()==='curve'?'곡선':'직선'}으로 그림을\n정확하게 ${cutGoal(n)}`; }
 function roundStages() { return G.tut ? 3 : GameCore.stageCount(G.stageNo || 1); }
 function resetEffects() { G.effects={helper:false,magnifier:false}; G.frozen=false; G.preview=null; G.guidePaths=null; }
 function refreshBoosters() {
   const usable=G.state==='cutting'&&!G.paused&&!G.tut&&!Pop.el&&!G.dragging;
   document.querySelectorAll('[data-item]').forEach(b=>{
-    const key=b.dataset.item, active=key==='stopwatch'?G.frozen:!!G.effects[key];
-    b.classList.toggle('active',active); b.querySelector('b').textContent=active?'ON':S.items[key];
+    const key=b.dataset.item, active=key==='stopwatch'?G.frozen:!!G.effects[key], n=S.items[key], badge=b.querySelector('.ibadge');
+    // Figma: 보유 0개 = 파란 AD 뱃지, 보유 = 빨간 개수 뱃지, 사용 중 = 초록 ON
+    b.classList.toggle('active',active); b.classList.toggle('faded',!active&&(G.tut||G.state!=='cutting'));
+    badge.textContent=active?'ON':n?String(n):'AD'; badge.className=`ibadge${active?' on':n?'':' ad'}`;
     b.disabled=!usable||active;
-    b.setAttribute('aria-label',`${GameCore.ITEMS[key].name}, ${active?'사용 중':S.items[key]+'개'+(!S.items[key]?', 코인 또는 광고로 사용':'')}`);
+    b.setAttribute('aria-label',`${GameCore.ITEMS[key].name}, ${active?'사용 중':n+'개'+(!n?', 코인 또는 광고로 사용':'')}`);
     b.title=GameCore.ITEMS[key].desc;
   });
-  const mode=$('btnCutMode'),curve=cutMode()==='curve';
-  mode.disabled=!usable;mode.classList.toggle('curve',curve);mode.setAttribute('aria-pressed',String(curve));
-  mode.setAttribute('aria-label',`자르기 모드: ${curve?'곡선':'직선'}. 누르면 ${curve?'직선':'곡선'}으로 전환`);
-  $('cutStatus').textContent=G.tut?'':G.cutsLeft?`남은 자르기 ${G.cutsLeft}회 · ${curve?'그린 곡선대로 잘라요':'시작점과 끝점을 곧게 이어요'}`:'자르기 완료! 결과를 확인해요';
+  const curve=cutMode()==='curve',pick=canPickMode();
+  for(const [id,on] of [['btnStraight',!curve],['btnCurve',curve]]){const m=$(id);m.classList.toggle('off',!on);m.setAttribute('aria-pressed',String(on));m.disabled=!pick;}
   $('bar').classList.toggle('frozen',G.frozen);
-  $('areaPreview').classList.toggle('hidden',!G.effects.magnifier||!G.preview||G.state!=='cutting');
-  if(G.effects.magnifier&&G.preview) $('areaPreview').innerHTML=G.preview.pieces.map(p=>`<span>${fmt(p.area/G.preview.total*100)}%</span>`).join('');
+  const ap=$('areaPreview'); ap.classList.toggle('hidden',!G.effects.magnifier||!G.preview||G.state!=='cutting');
+  if(G.effects.magnifier&&G.preview){ ap.classList.toggle('many',G.preview.pieces.length>4); ap.innerHTML=G.preview.pieces.map(p=>`<span>${fmt(p.area/G.preview.total*100)}%</span>`).join(''); }
 }
 function refreshPreview() {
   G.previewAt=performance.now();
-  const path=G.dragging?G.dragPath.map(p=>({x:p.x-Food.ox(),y:p.y-Food.oy()})):null;
+  const path=G.dragging?(cutMode()==='curve'?smoothPath(G.dragPath):G.dragPath).map(p=>({x:p.x-Food.ox(),y:p.y-Food.oy()})):null;
   G.preview=computePieces(path&&path.length>1?[...G.lines,path]:G.lines); refreshBoosters();
 }
 function useBooster(key) {
@@ -925,19 +948,20 @@ function useBooster(key) {
   save();refreshWallet();if(G.effects.magnifier)refreshPreview();refreshBoosters();Platform.haptic('tap');return true;
 }
 let itemAdBusy=false;
+const ITEM_POP_DESC={ helper:'도우미는 같은 면적으로 나누는 실선 가이드로\n이번 판 성공 또는 실패까지 유지돼요', stopwatch:'스탑워치는 현재 단계의 시간을 멈춰요\n다음 단계나 재도전에는 해제돼요', magnifier:'돋보기는 조각의 면적 %를 보여줘요\n이번 판 성공 또는 실패까지 유지돼요' };
 function openItemUse(key) {
   const item=GameCore.ITEMS[key],flow=G.flow,wasPaused=G.paused;
   G.paused=true;cancelDrag();refreshBoosters();
   const body=document.createElement('div');body.className='col itemUse';
-  body.innerHTML=`<div class="slot"><div class="itemUseIcon" aria-hidden="true">${item.icon}</div><div class="lead2">${item.name}를 모두 사용했어요</div><div class="desc">${item.desc}</div><div class="itemBalance">보유 코인 ${S.coins}개</div></div>
-    <button class="btn green" data-item-coin>코인 ${item.price}개로 사용</button>
-    <button class="btn blue" data-item-ad>광고 보고 사용 <span class="ad">AD</span></button>
-    <div class="itemFeedback" role="status" aria-live="polite">선택하는 동안 게임 시간은 멈춰요</div>`;
+  body.innerHTML=`<div class="slot"><img class="itemUseImg" data-a="item_${key}" alt=""><div class="lead2">${item.name}${josa(item.name,'을','를')} 모두 사용했어요</div><div class="desc">${ITEM_POP_DESC[key]||item.desc}</div></div>
+    <button class="btn green" data-item-coin>코인 ${item.price}개로 사용하기</button>
+    <button class="btn blue" data-item-ad>광고보고 사용하기 <span class="ad">AD</span></button>
+    <div class="itemFeedback" role="status" aria-live="polite"></div>`;
   let finished=false,busy=false;
   const valid=()=>!finished&&flow===G.flow&&G.state==='cutting'&&Pop.el===dialog;
   const resume=()=>{G._hiddenPause=wasPaused;G.paused=wasPaused||document.hidden;refreshBoosters();};
   const close=()=>{if(busy||finished)return;finished=true;if(flow===G.flow)resume();};
-  const dialog=Pop.open({title:`${item.name} 사용`,body,onClose:close});
+  const dialog=Pop.open({title:item.name,body,onClose:close,coins:true});
   const coin=body.querySelector('[data-item-coin]'),ad=body.querySelector('[data-item-ad]'),feedback=body.querySelector('.itemFeedback');
   const controls=()=>{coin.disabled=busy||S.coins<item.price;coin.classList.toggle('disabled',coin.disabled);ad.disabled=busy;dialog.querySelector('[data-x]').disabled=busy;};
   const apply=()=>{finished=true;Pop.close();G.paused=wasPaused;useBooster(key);resume();};
@@ -1394,7 +1418,7 @@ function startStage() {
   G.state = 'countdown'; G.countT = 3; G._lastCount = 4; G.timerOn = false; $('ready').classList.add('hidden');
   $('bar').classList.remove('low'); $('barFill').style.width = '100%'; $('cdim').classList.remove('hidden'); $('ring').classList.remove('go');
   $('steps').innerHTML = Array.from({length:roundStages()},(_,i)=>i).map(i => i === G.stage ? `<div class="step on">${i + 1}단계</div>` : `<div class="step ${i < G.stage ? 'done' : ''}">${i < G.stage ? '<svg width="14" height="12" viewBox="0 0 14 12" aria-hidden="true"><path d="M1.8 6.4 5.2 9.6 12.2 2.2" fill="none" stroke="#1f6512" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.8 6.4 5.2 9.6 12.2 2.2" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' : i + 1}</div>`).join('');
-  $('instr').textContent=G.stage===2&&roundStages()===4?'한 단계 더 기다려요!\n5조각으로 나눠요':st.talk; $('stageLabel').textContent=`그림을 1/${st.pieces}로 나눠요`; $('stagePlank').textContent = `${G.stageNo}연승 도전 중!`; updateHint(); refreshPoints(); refreshLobby();
+  setInstr(); $('stageLabel').textContent=`그림을 ${cutGoal(st.pieces)}`; updateHint(); refreshPoints(); refreshLobby();
   if (G.tut) Tut.enter();   // 튜토리얼: 카운트다운·타이머 없이 바로 따라 하기
   else if (G.attPending) { G.attPending = false; if (Attend.today()) { G.paused = true; attendOffer('play', () => { G.paused = false; }); } }   // 카운트다운 멈추고 출석 팝업
 }
@@ -1432,7 +1456,7 @@ function appendDrag(e) {
   const samples=e.getCoalescedEvents?e.getCoalescedEvents():[];
   for(const sample of [...samples,e]) {
     const p=toLogical(sample),prev=G.dragPath[G.dragPath.length-1];
-    if(prev&&Math.hypot(p.x-prev.x,p.y-prev.y)<0.6)continue;
+    if(prev&&Math.hypot(p.x-prev.x,p.y-prev.y)<(cutMode()==='curve'?2.5:0.6))continue;
     if(cutMode()==='straight')G.dragPath=[G.dragStart,p];else G.dragPath.push(p);
     G.dragCur=p;G.trail.push({...p,t:performance.now()});
   }
@@ -1454,7 +1478,8 @@ app.addEventListener('pointermove',e=>{
 });
 app.addEventListener('pointerup',e=>{
   if(!G.dragging||e.pointerId!==G.pointerId)return;appendDrag(e);
-  const path=G.dragPath.map(p=>({x:p.x-Food.ox(),y:p.y-Food.oy()}));
+  const raw=cutMode()==='curve'?smoothPath(G.dragPath):G.dragPath;
+  const path=raw.map(p=>({x:p.x-Food.ox(),y:p.y-Food.oy()}));
   const canCut=G.state==='cutting'&&!G.paused&&!Pop.el;cancelDrag();
   if(!canCut||pathLength(path)<20)return;
   const before=computePieces(G.lines),after=computePieces([...G.lines,path]);
@@ -1814,7 +1839,7 @@ const Intro = {
 
 // ───────────────── 시작 ─────────────────
 // [게임 시작] → 인게임 진입 순간 그날 출석 팝업 1번 (Figma 4-2 · 4-4, 로비에서는 안 띄움)
-$('btnCutMode').onclick=toggleCutMode;
+$('cutModes').querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setCutMode(b.dataset.mode));
 $('boosterBar').querySelectorAll('[data-item]').forEach(b=>b.onclick=()=>useBooster(b.dataset.item));
 $('playTools').addEventListener('pointerdown',e=>e.stopPropagation());
 $('walletHud').addEventListener('pointerdown',e=>e.stopPropagation());
@@ -1850,4 +1875,4 @@ const afterIntro = () => { Sfx.preload(); CatSlash.preload(); FoodLoader.preload
 Intro.start(afterIntro);
 document.addEventListener('pointerdown', () => Sfx.unlock(), { capture: true });
 // 디버그/QA 훅
-window.__bb = { useBooster, refreshBoosters, refreshWallet, refreshPreview, toggleCutMode, cancelDrag, startCutting, update, goLobby, watchContinueAd, roundStages, nearMission, nMoreNotice, Tut, Attend, Alarm, attendOffer, attendView, afterRound, alarmPopup, adPopup, showFail, showFinal, openMissions, roundEndNotice, CatSlash, FoodLoader, Intro, FOODS, startSet, openRanking, G, S, CFG, Food, Missions, computePieces, scoreOf, doCut, judge, startStage, newGame, L };
+window.__bb = { useBooster, refreshBoosters, refreshWallet, refreshPreview, toggleCutMode, setCutMode, smoothPath, cancelDrag, startCutting, update, goLobby, watchContinueAd, roundStages, nearMission, nMoreNotice, Tut, Attend, Alarm, attendOffer, attendView, afterRound, alarmPopup, adPopup, showFail, showFinal, openMissions, roundEndNotice, CatSlash, FoodLoader, Intro, FOODS, startSet, openRanking, G, S, CFG, Food, Missions, computePieces, scoreOf, doCut, judge, startStage, newGame, L };
