@@ -19,7 +19,7 @@ const CFG = {
   // 광고 — 모두 내부 어드민 설정값 (연결 전 임시값). 광고를 못 불러오면 횟수 차감 없음
   adRetryPerGame: 3,    // 실패 이어하기(보상형 광고): 한 판에 N번, 일일 제한 없음
   adEveryN: 3,          // N판마다 팝업형 광고(전면 아님) — 결과 팝업에서 다음 판으로 넘어갈 때. 0 = 안 띄움
-  version: '0.11.5',
+  version: '0.11.6',
   // 출석 선물 7일 (날짜 기준: 1일차 = 튜토리얼 완료일, 그날 못 받으면 기간만료) — 1일차도 같은 '출석 선물'(이름 통일). ※ 2~7일차 금액은 기획 확정 전 임시값
   // 노란 테두리 = 보상이 가장 큰 2일 (자동 계산, 보통 3·7일차가 되게 금액 설정)
   attend: [5, 1, 2, 1, 1, 1, 5], attendNote: ['추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용'],   // 칸 둘째 줄 (기획 확정 전 자리표시)
@@ -1444,7 +1444,7 @@ function startStage() {
   G.state = 'countdown'; G.countT = 3; G._lastCount = 4; G.timerOn = false; $('ready').classList.add('hidden');
   $('bar').classList.remove('low'); $('barFill').style.width = '100%'; $('cdim').classList.remove('hidden'); $('ring').classList.remove('go');
   $('steps').innerHTML = Array.from({length:roundStages()},(_,i)=>i).map(i => i === G.stage ? `<div class="step on">${i + 1}단계</div>` : `<div class="step ${i < G.stage ? 'done' : ''}">${i < G.stage ? '<svg width="14" height="12" viewBox="0 0 14 12" aria-hidden="true"><path d="M1.8 6.4 5.2 9.6 12.2 2.2" fill="none" stroke="#1f6512" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.8 6.4 5.2 9.6 12.2 2.2" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' : i + 1}</div>`).join('');
-  setInstr(); $('stageLabel').textContent=`${G.stageNo}연승 도전 중!`;   // 상단 연승 배지 대신 카운트다운 위에 표시 updateHint(); refreshPoints(); refreshLobby();
+  setInstr(); $('stageLabel').textContent=`${G.stageNo}연승 도전 중!`; updateHint(); refreshPoints(); refreshLobby();   // 연승: 상단 배지 대신 카운트다운 위에 표시
   if (G.tut) Tut.enter();   // 튜토리얼: 카운트다운·타이머 없이 바로 따라 하기
   else if (G.attPending) { G.attPending = false; if (Attend.today()) { G.paused = true; attendOffer('play', () => { G.paused = false; }); } }   // 카운트다운 멈추고 출석 팝업
 }

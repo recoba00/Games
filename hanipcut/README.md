@@ -2,7 +2,7 @@
 
 음식 그림을 직선 또는 자유곡선으로 잘라 정해진 조각 수로 똑같이 나누는 스낵게임. 토스 미니앱(앱인토스) + 웹 + PWA.
 
-- 현재 버전: **v0.11.5** (`bb/src/game.js` 의 `CFG.version`)
+- 현재 버전: **v0.11.6** (`bb/src/game.js` 의 `CFG.version`)
 - 엔진 없음: HTML5 Canvas 2D + 순수 JS
 - 리워드 동선(첫 접속 → 튜토리얼 → 출석·알림 2배 → 미션 → 판 종료 안내 → 광고 · 랭킹)은 다른 게임에도 그대로 쓰는 공통 UX
 
@@ -24,6 +24,8 @@
 - **v0.11.4 실패 창**: "이번 판 광고 이어하기 N/3회 남음" 줄 삭제 → 버튼 "광고보고 이어하기 {남은 횟수}/{CFG.adRetryPerGame}회 [AD]".
 
 - **v0.11.5**: 실패 창 "시간이 다 됐어요 / N단계부터 다시 도전해요"를 한 묶음(같은 18px, 줄바꿈)으로. 카운트다운 위 문구 = "N연승 도전 중!" (상단 연승 배지 대신).
+
+- **v0.11.6**: v0.11.5에서 startStage의 updateHint·refreshPoints·refreshLobby 호출이 주석에 묻힌 실수 수정. 모든 단계 성공 화면의 "연승 기록이 랭킹에 올라가요"가 멘트와 겹치던 위치 수정(멘트 아래로).
 
 이번 사업팀 재요청과 변경 결정은 [수정 계획](docs/superpowers/plans/2026-10-29-business-revision.md)에 있습니다. 이전 v0.10.0 [설계서](docs/superpowers/specs/2026-10-29-gameplay-expansion-design.md)와 [audit 기록](docs/superpowers/specs/2026-10-29-gameplay-expansion-audit.md)은 당시 기록으로 보관합니다.
 
