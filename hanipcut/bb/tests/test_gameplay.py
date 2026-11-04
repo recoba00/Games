@@ -372,5 +372,17 @@ class GameplayTest(unittest.TestCase):
         self.assertEqual([x[1] for x in r if x[0] in ('play1','play5')], [True, True])
         self.assertEqual(r[-2][2], '첫 판 플레이 미션완료!'); self.assertEqual(r[-1][3], '완료')
 
+    def test_fail_popup_shows_ad_count_on_button(self):
+        r = self.page.evaluate("""() => {
+          const read=()=>{const b=Pop.el.querySelector('[data-ad]');const t=b?b.textContent.replace(/\\s+/g,' ').trim():null;const body=Pop.el.textContent;Pop.close();return {t,left:body.includes('남음')};};
+          G.adUsed=0;showFail({reason:'time',score:0});const a=read();
+          G.adUsed=1;showFail({reason:'time',score:0},true);const b=read();
+          G.adUsed=3;showFail({reason:'time',score:0},true);const c=read();
+          return {a,b,c};
+        }""")
+        self.assertEqual(r['a'], {'t':'광고보고 이어하기 3/3회 AD','left':False})
+        self.assertEqual(r['b']['t'], '광고보고 이어하기 2/3회 AD')
+        self.assertIsNone(r['c']['t'])
+
 
 if __name__ == '__main__': unittest.main()
