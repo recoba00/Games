@@ -19,7 +19,7 @@ const CFG = {
   // 광고 — 모두 내부 어드민 설정값 (연결 전 임시값). 광고를 못 불러오면 횟수 차감 없음
   adRetryPerGame: 3,    // 실패 이어하기(보상형 광고): 한 판에 N번, 일일 제한 없음
   adEveryN: 3,          // N판마다 팝업형 광고(전면 아님) — 결과 팝업에서 다음 판으로 넘어갈 때. 0 = 안 띄움
-  version: '0.11.2',
+  version: '0.11.3',
   // 출석 선물 7일 (날짜 기준: 1일차 = 튜토리얼 완료일, 그날 못 받으면 기간만료) — 1일차도 같은 '출석 선물'(이름 통일). ※ 2~7일차 금액은 기획 확정 전 임시값
   // 노란 테두리 = 보상이 가장 큰 2일 (자동 계산, 보통 3·7일차가 되게 금액 설정)
   attend: [5, 1, 2, 1, 1, 1, 5], attendNote: ['추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용'],   // 칸 둘째 줄 (기획 확정 전 자리표시)
@@ -429,17 +429,36 @@ function scoreOf(stage, res, timeRatio) {
   return { ok: score >= stage.pass, score, acc, dev };
 }
 // Result textures are masked by the exact labels used to calculate areas.
-function pieceLayers(res) {
-  return res.comps.map(p => {
-    const cv = document.createElement('canvas'); cv.width=Food.mw; cv.height=Food.mh;
-    const c=cv.getContext('2d'), image=c.createImageData(Food.mw,Food.mh);
-    for(let i=0;i<res.labels.length;i++) if(res.labels[i]===p.sig) {
-      image.data[i*4]=255; image.data[i*4+1]=255; image.data[i*4+2]=255; image.data[i*4+3]=255;
+// 조각 분리 연출: 칼 선마다 양쪽으로 같은 폭만큼 벌림(v0.9.35 방식, 곡선은 가장 가까운 지점의 법선 기준)
+// + 고해상도(Food.canvas 크기) 조각 이미지 → 잘린 면이 계단처럼 보이지 않게
+function sepOffset(cx, cy, amt) {
+  let ox = 0, oy = 0;
+  for (const path of G.lines) {
+    let best = Infinity, bx = 0, by = 0, tx = 1, ty = 0;
+    for (let i = 1; i < path.length; i++) {
+      const a = path[i - 1], b = path[i], dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy; if (!l2) continue;
+      const t = Math.max(0, Math.min(1, ((cx - a.x) * dx + (cy - a.y) * dy) / l2)), px = a.x + dx * t, py = a.y + dy * t, d = (cx - px) ** 2 + (cy - py) ** 2;
+      if (d < best) { best = d; bx = px; by = py; const l = Math.sqrt(l2); tx = dx / l; ty = dy / l; }
     }
-    c.putImageData(image,0,0); c.globalCompositeOperation='source-in';
-    c.drawImage(Food.canvas,2,2,Food.w*Food.k,Food.h*Food.k,0,0,Food.w,Food.h);
-    const dx=p.cx-Food.cx,dy=p.cy-Food.cy,len=Math.hypot(dx,dy)||1;
-    return {sig:p.sig,canvas:cv,ox:dx/len*7,oy:dy/len*7};
+    if (best === Infinity) continue;
+    const side = Math.sign(tx * (cy - by) - ty * (cx - bx)) || 1;
+    ox += -ty * side * amt; oy += tx * side * amt;
+  }
+  return { x: ox, y: oy };
+}
+function pieceLayers(res) {
+  const amt = res.pieces.length > 3 ? 4.5 : 6, k = Food.k, W = Food.canvas.width, H = Food.canvas.height;
+  return res.comps.map(p => {
+    const m = document.createElement('canvas'); m.width = Food.mw; m.height = Food.mh;
+    const mc = m.getContext('2d'), image = mc.createImageData(Food.mw, Food.mh);
+    for (let i = 0; i < res.labels.length; i++) if (res.labels[i] === p.sig) image.data[i * 4 + 3] = 255;
+    mc.putImageData(image, 0, 0);
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const c = cv.getContext('2d'); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+    c.drawImage(m, 2, 2, Food.w * k, Food.h * k);
+    c.globalCompositeOperation = 'source-in'; c.drawImage(Food.canvas, 0, 0);
+    const o = sepOffset(p.cx, p.cy, amt);
+    return { sig: p.sig, canvas: cv, ox: o.x, oy: o.y };
   });
 }
 
@@ -752,7 +771,7 @@ function renderPlay(c) {
     const t = Math.min(1, G.splitT / 0.28), e = easeOutBack(t);
     for (const g of G.judge.groups) {
       c.save(); c.translate(g.ox * e, g.oy * e);
-      c.drawImage(g.canvas,ox,oy); c.restore();
+      c.drawImage(g.canvas, ox - 2 / Food.k, oy - 2 / Food.k, g.canvas.width / Food.k, g.canvas.height / Food.k); c.restore();
     }
   } else {
     Food.draw(c, ox, oy, 1);
