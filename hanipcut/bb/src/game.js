@@ -19,7 +19,7 @@ const CFG = {
   // 광고 — 모두 내부 어드민 설정값 (연결 전 임시값). 광고를 못 불러오면 횟수 차감 없음
   adRetryPerGame: 3,    // 실패 이어하기(보상형 광고): 한 판에 N번, 일일 제한 없음
   adEveryN: 3,          // N판마다 팝업형 광고(전면 아님) — 결과 팝업에서 다음 판으로 넘어갈 때. 0 = 안 띄움
-  version: '0.11.7',
+  version: '0.11.8',
   // 출석 선물 7일 (날짜 기준: 1일차 = 튜토리얼 완료일, 그날 못 받으면 기간만료) — 1일차도 같은 '출석 선물'(이름 통일). ※ 2~7일차 금액은 기획 확정 전 임시값
   // 노란 테두리 = 보상이 가장 큰 2일 (자동 계산, 보통 3·7일차가 되게 금액 설정)
   attend: [5, 1, 2, 1, 1, 1, 5], attendNote: ['추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용'],   // 칸 둘째 줄 (기획 확정 전 자리표시)
@@ -948,7 +948,8 @@ function refreshBoosters() {
     b.title=GameCore.ITEMS[key].desc;
   });
   const curve=cutMode()==='curve',pick=canPickMode();
-  for(const [id,on] of [['btnStraight',!curve],['btnCurve',curve]]){const m=$(id);m.classList.toggle('off',!on);m.setAttribute('aria-pressed',String(on));m.disabled=!pick;}
+  for(const [id,on] of [['btnStraight',!curve],['btnCurve',curve]]){const m=$(id);m.classList.toggle('off',!on);m.classList.toggle('green',on);   // 선택 = Theme Button Wood·Green, 아님 = Disabled
+   m.setAttribute('aria-pressed',String(on));m.disabled=!pick;}
   $('bar').classList.toggle('frozen',G.frozen);
   const ap=$('areaPreview'); ap.classList.toggle('hidden',!G.effects.magnifier||!G.preview||G.state!=='cutting');
   if(G.effects.magnifier&&G.preview){ ap.classList.toggle('many',G.preview.pieces.length>4); ap.innerHTML=G.preview.pieces.map(p=>`<span>${fmt(p.area/G.preview.total*100)}%</span>`).join(''); }
