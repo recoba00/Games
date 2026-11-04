@@ -67,6 +67,7 @@ canvas{position:absolute;left:0;top:0;pointer-events:none}
 .areaPreview span{height:32px;display:flex;align-items:center;padding:0 8px;border-radius:999px;border:2px solid #7a3b10;background:#fff;color:#4a2c10;font-size:16px;line-height:20px}
 .areaPreview.many{gap:4px}.areaPreview.many span{height:26px;padding:0 6px;font-size:13px}
 .bar.frozen i{background:linear-gradient(#8ce1ff,#319ace)}
+.slot .lead.failLead{line-height:1.4}
 .itemUse .slot{gap:6px;padding:16px 14px 18px}
 .itemUseImg{width:80px;height:80px;object-fit:contain;margin:0 auto 4px}
 .itemUse .lead2{font-size:18px;color:#fff}

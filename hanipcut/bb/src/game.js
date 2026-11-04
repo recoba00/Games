@@ -19,7 +19,7 @@ const CFG = {
   // 광고 — 모두 내부 어드민 설정값 (연결 전 임시값). 광고를 못 불러오면 횟수 차감 없음
   adRetryPerGame: 3,    // 실패 이어하기(보상형 광고): 한 판에 N번, 일일 제한 없음
   adEveryN: 3,          // N판마다 팝업형 광고(전면 아님) — 결과 팝업에서 다음 판으로 넘어갈 때. 0 = 안 띄움
-  version: '0.11.4',
+  version: '0.11.5',
   // 출석 선물 7일 (날짜 기준: 1일차 = 튜토리얼 완료일, 그날 못 받으면 기간만료) — 1일차도 같은 '출석 선물'(이름 통일). ※ 2~7일차 금액은 기획 확정 전 임시값
   // 노란 테두리 = 보상이 가장 큰 2일 (자동 계산, 보통 3·7일차가 되게 금액 설정)
   attend: [5, 1, 2, 1, 1, 1, 5], attendNote: ['추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용'],   // 칸 둘째 줄 (기획 확정 전 자리표시)
@@ -1444,7 +1444,7 @@ function startStage() {
   G.state = 'countdown'; G.countT = 3; G._lastCount = 4; G.timerOn = false; $('ready').classList.add('hidden');
   $('bar').classList.remove('low'); $('barFill').style.width = '100%'; $('cdim').classList.remove('hidden'); $('ring').classList.remove('go');
   $('steps').innerHTML = Array.from({length:roundStages()},(_,i)=>i).map(i => i === G.stage ? `<div class="step on">${i + 1}단계</div>` : `<div class="step ${i < G.stage ? 'done' : ''}">${i < G.stage ? '<svg width="14" height="12" viewBox="0 0 14 12" aria-hidden="true"><path d="M1.8 6.4 5.2 9.6 12.2 2.2" fill="none" stroke="#1f6512" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.8 6.4 5.2 9.6 12.2 2.2" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' : i + 1}</div>`).join('');
-  setInstr(); $('stageLabel').textContent=`그림을 ${cutGoal(st.pieces)}`; updateHint(); refreshPoints(); refreshLobby();
+  setInstr(); $('stageLabel').textContent=`${G.stageNo}연승 도전 중!`;   // 상단 연승 배지 대신 카운트다운 위에 표시 updateHint(); refreshPoints(); refreshLobby();
   if (G.tut) Tut.enter();   // 튜토리얼: 카운트다운·타이머 없이 바로 따라 하기
   else if (G.attPending) { G.attPending = false; if (Attend.today()) { G.paused = true; attendOffer('play', () => { G.paused = false; }); } }   // 카운트다운 멈추고 출석 팝업
 }
@@ -1610,8 +1610,10 @@ function showFail(sc,again) {
   const st=CFG.stages[G.stage],leftGame=CFG.adRetryPerGame-G.adUsed,canAd=leftGame>0;
   const lead=sc.reason==='time'?'시간이 다 됐어요':sc.reason==='count'?`${G.judge.res.pieces.length}조각이 됐어요 (목표 ${st.pieces}조각)`:`기준 ${st.pass}점까지 ${fmt(st.pass-sc.score)}점 모자라요`;
   const scoreLine=sc.reason==='score'?`<div class="big" data-n>${fmt(sc.score)}점</div>`:'<img class="gift" data-a="ad_clapper" style="animation:none">';
-  const info=canAd?`<div class="lead2">${G.stage+1}단계부터 다시 도전해요</div><div class="desc">오늘의 이어하기 무제한 · 광고 시청은 선택이에요</div>`:'<div class="lead2">이번 판 광고 이어하기를 다 썼어요</div><div class="desc">처음부터 다시 도전해요<br>새 게임은 횟수 제한 없이 즐길 수 있어요</div>';
-  const body=`<div class="col"><div class="slot">${scoreLine}<div class="lead">${lead}</div>${info}</div>
+  // 실패 이유 + 다음 안내를 한 묶음(같은 글자 크기, 줄바꿈)으로
+  const next=canAd?`${G.stage+1}단계부터 다시 도전해요`:'이번 판 광고 이어하기를 다 썼어요';
+  const info=canAd?'<div class="desc">오늘의 이어하기 무제한 · 광고 시청은 선택이에요</div>':'<div class="desc">처음부터 다시 도전해요<br>새 게임은 횟수 제한 없이 즐길 수 있어요</div>';
+  const body=`<div class="col"><div class="slot">${scoreLine}<div class="lead failLead">${lead}<br>${next}</div>${info}</div>
     ${canAd?`<button class="btn green" data-ad>광고보고 이어하기 ${leftGame}/${CFG.adRetryPerGame}회 <span class="ad">AD</span></button>`:''}
     <div class="row2"><button class="btn" data-home>홈으로</button><button class="btn" data-restart>처음부터</button></div></div>`;
   let left=false;const once=fn=>()=>{if(left||continueAdBusy)return;left=true;Pop.close();clearChips();fn();};

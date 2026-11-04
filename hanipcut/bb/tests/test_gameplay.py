@@ -53,7 +53,7 @@ class GameplayTest(unittest.TestCase):
         self.assertEqual(self.page.evaluate('CFG.adRetryPerGame'), 3)
         self.page.evaluate("G.stageNo=3; G.stage=3; startStage()")
         self.assertEqual(self.page.locator('#steps .step').count(), 4)
-        self.assertIn('1/7', self.page.locator('#stageLabel').inner_text())
+        self.assertEqual(self.page.locator('#stageLabel').inner_text(), '3연승 도전 중!')
         self.assertEqual(self.page.evaluate('G.cutsLeft'), 6)
 
     def draw_bent_gesture(self):
@@ -340,7 +340,7 @@ class GameplayTest(unittest.TestCase):
         }""")
         self.assertEqual(r['before'], {'helper':'+2','stopwatch':'AD','magnifier':'+1','instr':'직선으로 그림을\n정확하게 1/2로 나눠요'})
         self.assertEqual(r['curveInstr'], '곡선으로 그림을\n정확하게 1/3으로 나눠요')
-        self.assertEqual(r['label'], '그림을 1/3으로 나눠요')
+        self.assertEqual(r['label'], '1연승 도전 중!')
         self.assertEqual(r['on'], 'ON')
         self.assertEqual(r['plank'], 'none')
         self.assertEqual(r['coin'], '100')
@@ -383,6 +383,8 @@ class GameplayTest(unittest.TestCase):
         self.assertEqual(r['a'], {'t':'광고보고 이어하기 3/3회 AD','left':False})
         self.assertEqual(r['b']['t'], '광고보고 이어하기 2/3회 AD')
         self.assertIsNone(r['c']['t'])
+        lead = self.page.evaluate("()=>{G.adUsed=0;showFail({reason:'time',score:0},true);const l=Pop.el.querySelector('.failLead').innerText;Pop.close();return l;}")
+        self.assertEqual(lead.split('\n'), ['시간이 다 됐어요', f"{self.page.evaluate('G.stage')+1}단계부터 다시 도전해요"])
 
 
 if __name__ == '__main__': unittest.main()
