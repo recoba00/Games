@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>텃밭 지키기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<style>/*CSS*/</style>
+</head>
+<body>
+<div id="app">
+  <header class="hdr">
+    <div class="pill crops" role="status" aria-label="보유 채소"><i class="leaf" aria-hidden="true"></i><b id="cropCount">0</b></div>
+    <div class="pill stage" id="stagePill" role="status">스테이지 <b id="stageNum">1</b></div>
+    <button class="hbtn" id="btnHelp" aria-label="도움말">?</button>
+  </header>
+
+  <main class="field" id="fieldWrap">
+    <canvas id="game" aria-label="전장. 화면을 누르면 훠이! 하고 동물을 쫓아요"></canvas>
+    <div class="fence" aria-label="울타리">
+      <span>울타리</span>
+      <div class="ftrack"><i id="fenceFill"></i></div>
+    </div>
+  </main>
+
+  <section class="panel">
+    <nav class="tabs" role="tablist">
+      <button class="tab on" role="tab" aria-selected="true">수비대</button>
+      <button class="tab" role="tab" aria-selected="false" disabled>농기구<small>준비 중</small></button>
+      <button class="tab" role="tab" aria-selected="false" disabled>새 밭<small>준비 중</small></button>
+    </nav>
+    <div class="bulk" role="group" aria-label="한 번에 강화할 횟수">
+      <span>한 번에</span>
+      <button data-bulk="1">1번</button><button data-bulk="10">10번</button><button data-bulk="max">최대</button>
+    </div>
+    <div class="list" id="defList"></div>
+  </section>
+
+  <div id="popRoot"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</div>
+<script>/*JS*/</script>
+</body>
+</html>
