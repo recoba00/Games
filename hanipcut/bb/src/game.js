@@ -19,7 +19,7 @@ const CFG = {
   // 광고 — 모두 내부 어드민 설정값 (연결 전 임시값). 광고를 못 불러오면 횟수 차감 없음
   adRetryPerGame: 3,    // 실패 이어하기(보상형 광고): 한 판에 N번, 일일 제한 없음
   adEveryN: 3,          // N판마다 팝업형 광고(전면 아님) — 결과 팝업에서 다음 판으로 넘어갈 때. 0 = 안 띄움
-  version: '0.11.6',
+  version: '0.11.7',
   // 출석 선물 7일 (날짜 기준: 1일차 = 튜토리얼 완료일, 그날 못 받으면 기간만료) — 1일차도 같은 '출석 선물'(이름 통일). ※ 2~7일차 금액은 기획 확정 전 임시값
   // 노란 테두리 = 보상이 가장 큰 2일 (자동 계산, 보통 3·7일차가 되게 금액 설정)
   attend: [5, 1, 2, 1, 1, 1, 5], attendNote: ['추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용'],   // 칸 둘째 줄 (기획 확정 전 자리표시)
@@ -1650,7 +1650,7 @@ function showFinal(sc) {
   const body = `<div class="col"><div class="slot"><div class="big" data-n>0.0점</div><div class="lead">${G.stageScores.map(fmt).join(' + ')}</div>
     <div class="chips"><span class="chip">${isBest ? `최고 기록! ${G.clears}연승` : `최고 ${S.bestClear}연승`}</span></div>
     <button class="btn green" data-next>다음 스테이지</button></div></div>`;
-  $('instr').textContent = '모든 단계를\n성공했어요!'; $('hint').textContent = '연승 기록이 랭킹에 올라가요';
+  $('instr').textContent = '모든 단계를\n성공했어요!'; $('hint').textContent = '';
   let advanced=false;const nextSet=()=>{if(advanced)return;advanced=true;Pop.close();clearChips();G.stageNo++;afterRound(startSet,true);};
   const d = Pop.open({ title: '모든 단계 성공!', body, onClose: nextSet });  // X = 다음 스테이지
   const num = d.querySelector('[data-n]'), chip = d.querySelector('.chips .chip:last-child'); if (isBest) chip.style.visibility = 'hidden';
@@ -1658,6 +1658,8 @@ function showFinal(sc) {
   confetti(80); Sfx.fanfare(); FX.fireworks(5);
   d.querySelector('[data-next]').onclick = nextSet;
   roundEndNotice();
+  // 연승 안내는 토스트로, 미션(0.7초)·랭킹 변동(0.75초) 토스트가 있으면 그 뒤 차례로 → [랭킹]으로 흡수
+  const tk = G.flow; setTimeout(() => { if (tk === G.flow) toastToRank('연승 기록이 랭킹에 올라가요'); }, 900);
 }
 
 // ───────────────── 튜토리얼 (신규 유저: 로딩 → 로비 없이 바로) ─────────────────
@@ -1748,8 +1750,9 @@ function openRanking(opt = {}) {
   const me = { n: S.nick || '나', c: S.bestClear || 0, s: S.bestClear ? S.best || 0 : 0, me: true, img: S.profileImg || '' };
   const list = [...RANK_SAMPLE, me].sort(rankCmp); const myRank = list.indexOf(me) + 1;
   const val = (x) => x.none ? '기록 없음' : `${x.c}연승`;
-  const av = (x) => `<span class="rav">${x.img ? `<img src="${esc(x.img)}" alt="">` : '<img data-a="mascot" alt="">'}</span>`;
-  const pod = (x, r) => `<div class="pod p${r}">${podBg(r)}${x ? `<img class="pcrown" data-a="rank_${r}" alt="${r}위">${av(x)}<b>${esc(x.n)}</b><span class="psc">${val(x)}</span>` : ''}</div>`;
+  // 프로필 사진이 없으면: 시상대 1·2·3위는 순위별 그림(Figma P10-1), 그 외는 마스코트
+  const av = (x, r) => `<span class="rav">${x.img ? `<img src="${esc(x.img)}" alt="">` : `<img data-a="${r ? `avatar_${r}` : 'mascot'}" alt="">`}</span>`;
+  const pod = (x, r) => `<div class="pod p${r}">${podBg(r)}${x ? `<img class="pcrown" data-a="rank_${r}" alt="${r}위">${av(x, r)}<b>${esc(x.n)}</b><span class="psc">${val(x)}</span>` : ''}</div>`;
   // 친구: 기기에 저장한 닉네임 목록 (서버 연결 전 — 기록은 예시 순위에 있는 이름만 보임)
   const friendList = () => { const f = (S.friends || []).map(n => { const r = RANK_SAMPLE.find(x => x.n === n); return r ? { n, c: r.c, s: r.s } : { n, c: -1, s: 0, none: true }; }); return [...f, me].sort(rankCmp); };
   const head = document.createElement('div'); head.className = 'rhead';

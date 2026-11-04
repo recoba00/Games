@@ -386,5 +386,21 @@ class GameplayTest(unittest.TestCase):
         lead = self.page.evaluate("()=>{G.adUsed=0;showFail({reason:'time',score:0},true);const l=Pop.el.querySelector('.failLead').innerText;Pop.close();return l;}")
         self.assertEqual(lead.split('\n'), ['시간이 다 됐어요', f"{self.page.evaluate('G.stage')+1}단계부터 다시 도전해요"])
 
+    def test_podium_avatars_and_streak_toast_after_others(self):
+        r = self.page.evaluate("""async () => {
+          Pop.close();openRanking();
+          const imgs=[...Pop.el.querySelectorAll('.podium .rav img')].map(i=>i.dataset.a);Pop.close();
+          const seen=[];const orig=toastAbsorb;window.toastAbsorb=(m,p,f)=>{seen.push(m);};
+          S.lastRank=0;S.bestClear=0;G.stageNo=1;G.stage=2;G.stageScores=[80,80,80];G.roundRewarded=false;G.state='judging';
+          showFinal({score:80,ok:true});
+          await new Promise(r=>setTimeout(r,1200));
+          const hint=document.getElementById('hint').textContent;Pop.close();window.toastAbsorb=orig;
+          return {imgs,seen,hint};
+        }""")
+        self.assertEqual(r['imgs'], ['avatar_2','avatar_1','avatar_3'])
+        self.assertEqual(r['hint'], '')
+        self.assertEqual(r['seen'][-1], '연승 기록이 랭킹에 올라가요')
+        self.assertGreaterEqual(len(r['seen']), 2)
+
 
 if __name__ == '__main__': unittest.main()
