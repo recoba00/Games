@@ -345,6 +345,7 @@ img.navSetIc[data-a="i_settings"]{width:19.6px!important;height:19.6px!important
 .srow{min-height:49px;padding:12px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:16px;color:#fff;background:none;border:0;font-family:inherit;width:100%;text-align:left;cursor:pointer}
 .srow + .srow{border-top:1px solid rgba(255,255,255,.12)}
 .srow.go span{font-size:20px;color:rgba(255,255,255,.8);line-height:1}
+.srow.go .sic{display:flex;align-items:center;gap:8px;font-size:16px;color:#fff}.srow.go .sic img{width:22px;height:22px;object-fit:contain}   /* 설정 "알림 해제" + 표준 종 아이콘 (GAME-INTEGRATION §2.1.3) */
 .sw{width:56px;height:30px;border-radius:15px;background:#5a3210;border:3px solid #f79024;box-shadow:0 0 0 1.5px #c8611a,inset 0 2px 3px rgba(0,0,0,.4);position:relative;cursor:pointer;flex:none}
 .sw::after{content:'';position:absolute;top:2px;left:3px;width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#e9dcc6,#b8a88e);box-shadow:0 1px 2px rgba(0,0,0,.35);transition:left .15s}
 .sw.on{background:#5a3210;border-color:#f79024}.sw.on::after{left:27px;background:radial-gradient(circle at 35% 30%,#b4f08a,#3ea52a)}

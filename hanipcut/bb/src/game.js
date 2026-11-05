@@ -19,7 +19,7 @@ const CFG = {
   // 광고 — 모두 내부 어드민 설정값 (연결 전 임시값). 광고를 못 불러오면 횟수 차감 없음
   adRetryPerGame: 3,    // 실패 이어하기(보상형 광고): 한 판에 N번, 일일 제한 없음
   adEveryN: 3,          // N판마다 팝업형 광고(전면 아님) — 결과 팝업에서 다음 판으로 넘어갈 때. 0 = 안 띄움
-  version: '0.11.8',
+  version: '0.12.0',
   // 출석 선물 7일 (날짜 기준: 1일차 = 튜토리얼 완료일, 그날 못 받으면 기간만료) — 1일차도 같은 '출석 선물'(이름 통일). ※ 2~7일차 금액은 기획 확정 전 임시값
   // 노란 테두리 = 보상이 가장 큰 2일 (자동 계산, 보통 3·7일차가 되게 금액 설정)
   attend: [5, 1, 2, 1, 1, 1, 5], attendNote: ['추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용', '추가 선물내용'],   // 칸 둘째 줄 (기획 확정 전 자리표시)
@@ -87,6 +87,9 @@ const Platform = (() => {
     // 보상형 광고 결과: 'done'(끝까지 봄) · 'closed'(중간에 닫음) · 'error'(불러오기 실패)
     async showRewardedAd() {
       const norm = (r) => r === true ? 'done' : r === false || r == null ? 'error' : r;
+      if (Gf.on && Gf.adReady()) {   // 토스: 지팩 SDK 광고(GfSDK.ad)
+        Sfx.suspend(); try { return norm(await SdkGuard.run(() => Gf.showRewarded())); } catch (e) { return 'error'; } finally { if (!document.hidden) Sfx.resume(); }
+      }
       if (window.TossBridge && TossBridge.showRewardedAd) {   // 광고 중엔 소리 멈춤 (토스 검수 항목)
         Sfx.suspend(); try { return norm(await SdkGuard.run(() => TossBridge.showRewardedAd())); } catch (e) { return 'error'; } finally { if (!document.hidden) Sfx.resume(); }
       }
@@ -100,7 +103,7 @@ const Platform = (() => {
     },
     // 토스 로그인: 사용자가 '로그인' 버튼을 눌렀을 때만 호출. 토스 = appLogin(인가 코드 → 서버 토큰 교환은 지팩 SDK), 웹 = 예시 화면
     async login() {
-      if (!CFG.loginExample && window.TossBridge && TossBridge.login) { try { return !!(await SdkGuard.run(() => TossBridge.login())); } catch (e) { return false; } }
+      if (!CFG.loginExample && Gf.on) return !!(await SdkGuard.run(() => Gf.login()));   // 토스: 지팩 SDK 로그인(회원 세션)
       return SdkSheet.open({ title: '한입컷에서 토스 로그인', desc: '정보 제공에 동의하고 포인트를 받아요 (토스가 그리는 화면 · 예시)', ok: '동의하고 계속하기' });
     },
     // 알림 동의: 'newAgreement' · 'alreadyAgreed' · 'agreementRejected'(또는 null)
@@ -109,8 +112,150 @@ const Platform = (() => {
       return (await SdkSheet.open({ title: '한입컷 알림 받기', desc: '이벤트·보상 소식을 토스 알림으로 받아요 (토스가 그리는 화면 · 예시)', ok: '알림 받기' })) ? 'newAgreement' : 'agreementRejected';
     },
     getProfile() { return window.TossBridge && TossBridge.getProfile ? Promise.resolve(TossBridge.getProfile()) : Promise.resolve(null); },
-    submitScore(clears, score) { try { window.TossBridge && TossBridge.submitScore && TossBridge.submitScore(clears * 100000 + Math.min(99999, Math.round(score))); } catch (e) {} },  // 연속 클리어 우선, 같으면 누적 점수
+    submitScore(clears, score) { if (Gf.board) { Gf.submit(clears, true); return; } try { window.TossBridge && TossBridge.submitScore && TossBridge.submitScore(clears * 100000 + Math.min(99999, Math.round(score))); } catch (e) {} },  // 연속 클리어 우선, 같으면 누적 점수
   };
+})();
+
+// ───────────────── 지팩토리 게임 SDK (gf-sdk · 토스 빌드에서만) ─────────────────
+// 토스 빌드(ait/build-toss.py)가 window.AppsInToss(전체 export) → gf-sdk@<버전>.js → window.__gfConfig(ait/gf.config.json) 를
+// 게임 스크립트보다 먼저 넣는다. 웹 빌드에는 셋 다 없어서 Gf.on=false → 게임 자체 흐름(예시 미션·랭킹·가짜 광고) 그대로.
+//  - 항상(토스): GfSDK.init 1회(로그인은 사용자 행동에서만 · loginTiming 'explicit') · 보상형 광고 · 판 시작/종료 로그
+//  - promotionCode 있으면: 미션·7일 출석·알림·지급 토스트를 SDK 화면(reward.createView, uxVersion 2)이 그림 → 게임 자체 미션/출석/웰컴/알림 흐름은 끔
+//  - leaderboardEntryUrl 있으면: 랭킹을 SDK 랭킹(gf_score, 점수 = 최고 연승)으로 → 게임 자체 예시 랭킹은 끔
+//  상단 [랭킹][미션] 버튼·코인 HUD 는 게임 것을 그대로 두고(Figma) SDK 배지는 끈다(badge:false). 정본: src_gfac_game_sdk/docs/GAME-INTEGRATION.md §3·§7·§8.9·§10
+const Gf = (() => {
+  const cfg = window.__gfConfig || null;
+  const sdk = () => window.GfSDK || null;
+  const g0 = sdk();
+  const on = !!(cfg && cfg.gameId && g0 && typeof g0.init === 'function');
+  const reward = on && !!cfg.promotionCode && !!(g0.reward && typeof g0.reward.createView === 'function');
+  const board = on && !!cfg.leaderboardEntryUrl && !!g0.leaderboard;
+  const rvId = on && cfg.ads && cfg.ads.rv || '';
+  const quiet = (f) => { try { const r = f(); if (r && typeof r.then === 'function') r.catch(() => {}); return r; } catch (e) { return undefined; } };
+  const log = (name, data) => { const g = sdk(); if (g && g.log) quiet(() => g.log(name, data || {})); };
+  // SDK 화면을 기다리되 오래 붙잡히거나 오류로 끊기지 않게 (최대 ms)
+  // 60초가 지나도 SDK 화면(로그인 포함)이 떠 있으면 닫힐 때까지 더 기다림 — 화면 아래에서 판이 시작되지 않게(§3.2-5)
+  const covering = () => pausedBy !== null || !!quiet(() => sdk().promoHub.isOpen())
+    || !!document.querySelector('#__gf-portal .gf-modal,#__gf-portal .gf-rx-dialog,#__gf-portal [role="dialog"]');
+  const settle = (step, ms = 60000) => new Promise((res) => {
+    let done = false; const fin = () => { if (done) return; done = true; res(); };
+    const t = setTimeout(function wait() { if (done) return; if (covering()) setTimeout(wait, 1000); else fin(); }, ms);
+    try { Promise.resolve(step()).catch(() => {}).finally(() => { clearTimeout(t); fin(); }); } catch (e) { clearTimeout(t); fin(); } });
+  let initDone = Promise.resolve(null), round = null, active = false, pausedBy = null, badge = { count: 0, text: '' }, healed = false;
+
+  // 미션·출석 아이템 지급(§8.3): 같은 멱등키는 한 번만 (기기 저널) → ack. 모르는 통화는 ack 안 함(SDK가 다시 보냄)
+  const JOURNAL = 'hanipcut:gf-grant-journal';
+  const journal = () => { try { return JSON.parse(localStorage.getItem(JOURNAL) || '[]'); } catch (e) { return []; } };
+  async function deliver(gr) {
+    const g = sdk(), hub = g && g.promoHub, ack = () => quiet(() => hub.ackItem(gr.idem));
+    if (!gr || !gr.idem) return false;
+    if (hub && typeof hub.ownsGrant === 'function' && !hub.ownsGrant(gr.idem)) return false;   // 다른 계정 것: 나중에 다시
+    const done = journal(); if (done.includes(gr.idem)) { ack(); return true; }
+    const n = Math.floor(Number(gr.amount));
+    if (!Number.isSafeInteger(n) || n <= 0) { ack(); return true; }
+    if (gr.currency === 'coin') S.coins += n;
+    else if (GameCore.ITEMS[gr.currency]) S.items[gr.currency] = (S.items[gr.currency] || 0) + n;
+    else return false;
+    save(); try { localStorage.setItem(JOURNAL, JSON.stringify([...done, gr.idem].slice(-200))); } catch (e) {}
+    ack(); refreshWallet(); refreshBoosters(); return true;
+  }
+  // SDK 화면이 게임 위에 뜨면 멈추고, 닫히면 원래 상태로
+  function pause(p) {
+    if (p) { if (pausedBy === null) pausedBy = G.paused; G.paused = true; cancelDrag(); }
+    else if (pausedBy !== null) { G.paused = pausedBy || document.hidden; pausedBy = null; }
+    refreshBoosters();
+  }
+  const icons = () => { const A = window.ASSETS || {};
+    return { point: A.coin_p, coin: A.coin_star, bell: A.ic_bell, check: A.ic_got, helper: A.item_helper, stopwatch: A.item_stopwatch, magnifier: A.item_magnifier }; };
+  // 헤더 [미션] 배지 숫자 = 지금 받을 수 있는 보상 수 (SDK 화면 상태에서 읽음, 판정은 서버)
+  function readBadge(v) {
+    try {
+      const rows = Array.isArray(v && v.rows) ? v.rows : [], a = v && v.state && v.state.attendance;
+      const n = rows.filter(r => r && r.state === 'ready' && r.selection && !r.external && !r.mock && r.kind !== 'notification').length
+        + (a && a.claimable && a.dayIndex >= 1 && a.dayIndex <= 7 ? 1 : 0);
+      badge = { count: n, text: n ? (n >= 10 ? '9+' : String(n)) : '' };
+    } catch (e) { badge = { count: 0, text: '' }; }
+    quiet(() => refreshLobby());
+  }
+  function init() {
+    if (!on) return;
+    const g = sdk(), env = cfg.env === 'live' ? 'live' : 'test';
+    const o = { gameId: cfg.gameId, platform: 'toss', apiBase: cfg.apiBase, debug: false,
+      toss: { proxyBase: cfg.apiBase, env, loginTiming: 'explicit' } };   // 진입 직후 로그인 창 금지(토스 검수) — 저장 세션 조용한 복원만
+    if (cfg.analyticsDeploymentId) o.analytics = { enabled: true, deploymentId: cfg.analyticsDeploymentId };
+    if (board) o.leaderboard = { entryUrl: cfg.leaderboardEntryUrl, scoreLabel: '연승', badge: false, font: false, autoOpenOnRankUp: false };   // 결과 화면은 게임이 연출(§10)
+    if (reward) {
+      const view = g.reward.createView({ gameId: cfg.gameId, gameName: '한입컷', platform: 'toss', badge: false, icons });
+      if (view && typeof view.sync === 'function') { const s0 = view.sync; view.sync = function (v) { const r = s0.apply(this, arguments); readBadge(v); return r; }; }
+      o.reward = { promotionCode: cfg.promotionCode, view, pause,
+        hub: { uxVersion: 2, econ: 3, autoOpen: false, badge: false, font: false,
+          idle: () => G.state === 'lobby' && !G.tut && !Pop.el && !SdkGuard.on, items: { deliver } } };
+    }
+    const onSession = () => { if (board && !healed && S.bestClear > 0) { healed = true; submit(S.bestClear); } };   // 부팅 후 1회 자기치유 제출
+    quiet(() => g.on('game-session-ready', onSession)); quiet(() => g.on('session-ready', onSession));
+    initDone = Promise.resolve().then(() => g.init(o)).catch((e) => { console.warn('[hanipcut] GfSDK init — playing on', e && e.code || e); return null; });
+  }
+  // 제출 응답 rank.all {before, after} 로 게임 토스트(→[랭킹] 흡수). SDK 자동 카드는 끔(autoOpenOnRankUp:false). 첫 기록 before = null
+  function submit(clears, notify) {
+    const g = sdk(); if (!board || !(clears > 0)) return;
+    Promise.resolve(quiet(() => g.leaderboard.submit(clears))).then((r) => {
+      const a = r && r.rank && r.rank.all, after = a && a.after, before = a && a.before; if (!notify || !(after > 0)) return;
+      const msg = before == null ? `랭킹에 올랐어요! 지금 ${after}위` : after < before ? `랭킹 ${after}위로 올랐어요 (▲${before - after})` : '';
+      if (msg) setTimeout(() => toastToRank(msg), 750);
+    }).catch(() => {});
+  }
+  // 보상형 광고(§7): 'done'(보상 확정) · 'closed'(끝까지 안 봄) · 'error'(불러오기 실패 → 횟수 안 줄임)
+  async function showRewarded() {
+    await Promise.race([initDone, new Promise(r => setTimeout(r, 5000))]);
+    const g = sdk(); if (!g || !g.ad) return 'error';
+    try {
+      await g.ad.preload({ kind: 'rv', adGroupId: rvId });
+      const r = await g.ad.showRewarded({ adGroupId: rvId });
+      return !r || r.noFill ? 'error' : r.rewarded ? 'done' : 'closed';
+    } catch (e) { return 'error'; }
+  }
+  // 판(§8.1): 정식 판 시작 = 음식 세트 시작(beginSet), 광고 이어하기는 같은 판. 결과 첫 표시 뒤 gameEnd 1회
+  // 10초 규칙(2026-11-04): 실패는 판 시작~판정 순간이 10초 이하면 판이 아님 → 보류, 이어하기 뒤 다음 판정에서 다시 판단. 성공은 항상 1판
+  function roundBegin() {
+    round = { t0: Date.now(), ended: false };
+    log('game-start', { stageNo: G.stageNo });
+    if (reward) { const r = sdk().reward; quiet(() => r.beginRound()); }
+  }
+  function roundResult(won, decidedAt) {
+    if (!round || round.ended) return;
+    const ms = (decidedAt || Date.now()) - round.t0;
+    if (!won && ms <= 10000) return;
+    round.ended = true;
+    log('game-end', { won, stageNo: G.stageNo, clears: G.clears, durationMs: ms });
+    const g = sdk();
+    if (reward && (quiet(() => g.getSession()) || quiet(() => g.reward.isV2())) && typeof g.reward.gameEnd === 'function') quiet(() => g.reward.gameEnd());
+  }
+  // 조작 가능한 구간만 true (튜토리얼·일시정지·팝업·광고·결과·홈 = false)
+  function tick() {
+    if (!on) return;
+    const now = !G.tut && (G.state === 'cutting' || G.state === 'countdown') && !G.paused && !Pop.el && !document.hidden;
+    if (now === active) return; active = now; window.__gfRoundActive = now;
+    if (reward) { const r = sdk().reward; quiet(() => r.setRoundActive(now)); }
+  }
+  // 정식 판으로 센 결과에서만(10초 이하 실패는 판이 아님 → 안내 없음)
+  const beforeResult = () => reward && round && round.ended && typeof sdk().reward.beforeResultAction === 'function' ? settle(() => sdk().reward.beforeResultAction()) : null;
+  const beforePlay = () => reward && sdk().onboarding && typeof sdk().onboarding.beforePlay === 'function' ? settle(() => sdk().onboarding.beforePlay()) : null;
+  const previewGift = () => reward && sdk().onboarding && typeof sdk().onboarding.previewGift === 'function' ? settle(() => sdk().onboarding.previewGift()) : Promise.resolve();
+  const tutorialComplete = () => reward && sdk().onboarding && typeof sdk().onboarding.tutorialComplete === 'function' ? settle(() => sdk().onboarding.tutorialComplete()) : Promise.resolve();
+  // 사용자 행동에서만 토스 로그인 → 지팩 회원 세션 (인가 코드를 게임이 직접 받지 않음)
+  async function login() { try { const g = sdk(); return !!(g && typeof g.retrySession === 'function' && await g.retrySession()); } catch (e) { return false; } }
+  const openMissions = () => { if (reward) quiet(() => sdk().promoHub.open()); };
+  const notifySettings = () => { if (reward) quiet(() => sdk().promoHub.openNotificationSettings()); };
+  // 랭킹 카드는 닫힘 콜백이 없음 → 판 중에 열면 카드가 사라질 때까지 멈춤
+  function openRanking() {
+    if (!board) return;
+    const was = G.paused; G.paused = true; cancelDrag(); refreshBoosters();
+    quiet(() => sdk().leaderboard.open());
+    const t0 = Date.now(); let seen = false;
+    const iv = setInterval(() => { if (document.querySelector('.gf-lb-card') || covering()) { seen = true; return; }   // 로그인 안내 등 다른 SDK 창도
+      if (seen || Date.now() - t0 > 3000) { clearInterval(iv); G.paused = was || document.hidden; refreshBoosters(); } }, 250);
+  }
+  return { on, reward, board, adReady: () => !!rvId, init, submit, showRewarded, roundBegin, roundResult, tick, beforeResult, beforePlay, previewGift, tutorialComplete, openMissions, notifySettings, openRanking, login, badge: () => badge, log };
 })();
 
 // 토스 SDK 화면이 떠 있는 동안 화면 맞춤(fit)을 멈춤 → 끝나고 0.4초 뒤 다시 맞춤
@@ -710,6 +855,7 @@ function loop(now) {
   requestAnimationFrame(loop);  // 먼저 다음 프레임 예약 → 어떤 오류가 나도 게임이 멈추지 않음
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   try { update(dt); } catch (e) { console.error('update', e); }
+  try { Gf.tick(); } catch (e) {}
   try { render(dt); } catch (e) { console.error('render', e); FXL.length = 0; }  // 연출 오류면 연출만 비우고 계속
 }
 function update(dt) {
@@ -911,6 +1057,11 @@ function refreshPoints(anim) {
 // 로비: '리워드 미션' 위 칩 (받을 보상 N개 — 출석 선물 포함) + 헤더 [미션] 배지 (일일 미션 달성 수/전체)
 function refreshLobby() {
   refreshWallet();
+  if (Gf.reward) {   // 지팩 SDK 미션: 배지 숫자 = 받을 보상 수 (게임 자체 미션·출석 집계는 쓰지 않음)
+    const b = Gf.badge(); $('hdrDot').textContent = b.text; $('hdrDot').classList.toggle('hidden', !b.text);
+    $('lobbyNick').classList.add('hidden'); $('rewardChip').classList.add('hidden'); app.classList.toggle('canClaim', b.count > 0);
+    return;
+  }
   const L2 = Missions.list(); $('hdrDot').textContent = `${L2.daily.filter(x => x.cur >= x.max).length}/${L2.daily.length}`;
   $('lobbyNick').classList.toggle('hidden', !S.login);   // 닉네임 칸은 로그인한 유저만 (Figma 4-1)
   if (document.activeElement !== $('nickInput')) $('nickInput').value = S.nick || '';
@@ -1206,6 +1357,7 @@ const Missions = {
 const Sess = { told: new Set() };   // 같은 안내는 세션당 1회
 // 판 종료 안내: 결과 화면 위 토스트 1회 (주 버튼은 그대로 '다음 스테이지'). 플레이 중에는 아무것도 띄우지 않음
 function roundEndNotice() {
+  if (Gf.reward) return;   // 판 종료 안내는 SDK(beforeResultAction · 결과 토스트)가 함
   const fresh = Missions.claimable().filter(x => !Sess.told.has(x.id));
   const welcome = !!Attend.today() && !S.login && !Sess.told.has('welcome');
   if (!fresh.length && !welcome) { nMoreNotice(); return; }
@@ -1231,6 +1383,7 @@ function nearMission() {
 }
 // mid = 1단계 성공 팝업(판이 아직 안 끝남): 판 수 미션은 '이번 판 포함' 남은 수 → 1판이면 '이번 판만 끝내면'
 function nMoreNotice(mid) {
+  if (Gf.reward) return;
   if (S.alarmAsk === 1 && !Alarm.on()) return;
   const n = nearMission(); if (!n) return;
   if (mid && n.unit === '판' && n.left === 1) { setTimeout(() => toastToMission(n.rep ? `이번 판만 끝내면 ${missionReward(n.x)}를 받아요` : `이번 판만 끝내면 ${n.x.name} ${missionReward(n.x)}!`, true), 700); return; }
@@ -1300,12 +1453,13 @@ function openSettings(_pb) {
   const tg = (k, label) => `<div class="srow">${label}<div class="sw ${S[k] ? 'on' : ''}" data-k="${k}"></div></div>`;
   const lk = (k, label) => `<button class="srow go" data-doc="${k}">${label}<span>›</span></button>`;
   body.innerHTML = `<div class="scard">${tg('sound', '효과음')}${tg('bgm', '배경음')}${tg('vibe', '진동')}</div>
-    <div class="scard">${lk('terms', '이용약관')}${lk('privacy', '개인정보 처리방침')}${lk('oss', '오픈소스 라이선스')}</div>
+    <div class="scard">${Gf.reward && Screen.cur !== 'play' ? '<button class="srow go" data-notif-off><span class="sic"><img data-a="ic_bell" alt="">알림 해제</span><span>›</span></button>' : ''}${lk('terms', '이용약관')}${lk('privacy', '개인정보 처리방침')}${lk('oss', '오픈소스 라이선스')}</div>
     ${Screen.cur === 'play' ? '<div class="row2"><button class="btn m" data-h>홈으로</button><button class="btn m green" data-r>계속하기</button></div>' : ''}
     <div class="ver">버전 ${CFG.version}</div>`;
   body.querySelectorAll('.sw').forEach(s => s.onclick = () => { S[s.dataset.k] = !S[s.dataset.k]; s.classList.toggle('on', S[s.dataset.k]); save(); Sfx.pop(); if (s.dataset.k === 'bgm') Sfx.refreshBgm(); if (s.dataset.k === 'vibe') Platform.haptic('cut'); });
   // 약관·개인정보·라이선스: 새 팝업이 아니라 같은 팝업 안에서 페이지 전환, [설정으로 돌아가기]로 복귀 (Figma P03 가이드)
   body.querySelectorAll('[data-doc]').forEach(b => b.onclick = () => { Sfx.pop(); openDoc(b.dataset.doc, () => openSettings(pausedBefore), resume); });
+  const nOff = body.querySelector('[data-notif-off]'); if (nOff) nOff.onclick = () => { Sfx.pop(); Pop.close(); resume(); Gf.notifySettings(); };   // 토스 알림 끄기 시트(SDK, GAME-INTEGRATION §2.1.3)
   const r = body.querySelector('[data-r]'); if (r) r.onclick = () => { Pop.close(); resume(); };
   testResetTap(body.querySelector('.ver'), () => openSettings(pausedBefore), resume);   // [테스트용 · 배포 전 삭제]
   const h = body.querySelector('[data-h]'); if (h) h.onclick = () => { Pop.close(); goLobby(); };   // 결과 전 홈 = 판 수에 안 셈
@@ -1400,15 +1554,16 @@ function startSet() {
   FoodLoader.load(def).then(im => { if (tk !== G._loadTk) return; Food.set(def, im); beginSet(); })
     .catch(() => { if (tk !== G._loadTk) return; toast('음식을 불러오지 못했어요'); Food.set(def, null); beginSet(); });
 }
-function beginSet() { G.stage=0; G.stageScores=[]; G.adUsed=0; G.playCounted=false; G.roundRewarded=false; resetEffects(); startStage();
+function beginSet() { G.stage=0; G.stageScores=[]; G.adUsed=0; G.playCounted=false; G.roundRewarded=false; G.decidedAt=0; resetEffects(); if (!G.tut) Gf.roundBegin(); startStage();
 }
 // 한 판 = 3단계 성공(완료 화면) 또는 실패 창이 처음 뜬 때 1번 (광고 이어하기는 같은 판). 결과 전 홈 나가기·튜토리얼은 안 셈
 function endGame() { if (!G.playCounted) { G.playCounted = true; Missions.addPlay(); S.plays = (S.plays || 0) + 1; save(); } }
 // 결과 팝업에서 다음으로 넘어갈 때: ① 첫 정식 판 알림 팝업(1일차 수령 때 안 켠 유저, 1번) ② N판마다 팝업형 광고(다음 판으로 갈 때만) → next
-function afterRound(next, toNextGame) {
-  if (S.alarmAsk === 1 && !Alarm.on()) { S.alarmAsk = 2; save(); return alarmPopup(() => afterRound(next, toNextGame)); }
+function afterRound(next, toNextGame, gfDone) {
+  if (!gfDone) { const w = Gf.beforeResult(), tk = G.flow; if (w) { w.then(() => { if (tk === G.flow) afterRound(next, toNextGame, true); }); return; } }   // SDK: 첫 결과 알림 제안 등 (닫힐 때까지). 그 사이 홈으로 갔으면 버림
+  if (!Gf.reward && S.alarmAsk === 1 && !Alarm.on()) { S.alarmAsk = 2; save(); return alarmPopup(() => afterRound(next, toNextGame, true)); }
   const N = CFG.adEveryN;
-  if (toNextGame && N > 0 && S.plays > 0 && S.plays % N === 0 && S.adAt !== S.plays) { S.adAt = S.plays; save(); return adPopup(next); }
+  if (!Gf.on && toNextGame && N > 0 && S.plays > 0 && S.plays % N === 0 && S.adAt !== S.plays) { S.adAt = S.plays; save(); return adPopup(next); }
   next();
 }
 // 알림 팝업 (Figma 2-3): [괜찮아요] → 다음, [알림켜기] → 토스 알림 동의 → 켜면 토스트 (Figma 2-5), 거절하면 그냥 다음
@@ -1468,7 +1623,7 @@ function updateHint() {
   void st; refreshPoints(); refreshBoosters();
 }
 function timeOver() {
-  cancelDrag(); G.state = 'judging'; G.timeLeft = 0; refreshBoosters(); Sfx.duck(true); Sfx.fail();
+  cancelDrag(); G.state = 'judging'; G.timeLeft = 0; G.decidedAt = Date.now(); refreshBoosters(); Sfx.duck(true); Sfx.fail();
   failFx(); const tk = G.flow; const off = FX.slam({ text: '시간 초과', theme: 'fail', size: 42 }); setTimeout(() => { off(); if (tk !== G.flow) return; showFail({ reason: 'time', score: 0 }); }, 1000);
 }
 
@@ -1542,7 +1697,7 @@ function judge() {
   const st = CFG.stages[G.stage];
   const res = computePieces(G.lines);
   const timeRatio = Math.max(0, G.timeLeft / st.time);
-  const sc = scoreOf(st, res, timeRatio);
+  const sc = scoreOf(st, res, timeRatio); G.decidedAt = Date.now();
   if (G.tut && !sc.ok) { sc.ok = true; sc.score = Math.max(sc.score, st.pass); }   // 튜토리얼은 무조건 통과
   const groups=pieceLayers(res);
   const offOf=sig=>{const g=groups.find(p=>p.sig===sig);return g?{x:g.ox,y:g.oy}:{x:0,y:0};};
@@ -1623,7 +1778,7 @@ function showFail(sc,again) {
   d.querySelector('[data-home]').onclick=home;
   d.querySelector('[data-restart]').onclick=once(()=>{endRun();afterRound(newGame,true);});
   const ad=d.querySelector('[data-ad]');if(ad)ad.onclick=()=>{if(continueAdBusy||left)return;watchContinueAd(sc,()=>{ad.disabled=false;ad.classList.remove('disabled');});};
-  if(!again)roundEndNotice();
+  if(!again){Gf.roundResult(false,G.decidedAt);roundEndNotice();}
 }
 async function watchContinueAd(sc,back) {
   if(continueAdBusy||G.adUsed>=CFG.adRetryPerGame||!['failed','judging'].includes(G.state))return;
@@ -1646,7 +1801,7 @@ function showFinal(sc) {
   if(G.roundRewarded)return;G.roundRewarded=true;resetEffects();refreshBoosters();
   endGame();
   const total = G.stageScores.reduce((a, b) => a + (b || 0), 0); G.runTotal += total; G.clears = G.stageNo;
-  const isBest = isBetter(G.clears, G.runTotal); endRun();
+  const isBest = isBetter(G.clears, G.runTotal); endRun(); Gf.roundResult(true);
   const m = Missions.state();
   const body = `<div class="col"><div class="slot"><div class="big" data-n>0.0점</div><div class="lead">${G.stageScores.map(fmt).join(' + ')}</div>
     <div class="chips"><span class="chip">${isBest ? `최고 기록! ${G.clears}연승` : `최고 ${S.bestClear}연승`}</span></div>
@@ -1660,7 +1815,7 @@ function showFinal(sc) {
   d.querySelector('[data-next]').onclick = nextSet;
   roundEndNotice();
   // 연승 안내는 토스트로, 미션(0.7초)·랭킹 변동(0.75초) 토스트가 있으면 그 뒤 차례로 → [랭킹]으로 흡수
-  const tk = G.flow; setTimeout(() => { if (tk === G.flow) toastToRank('연승 기록이 랭킹에 올라가요'); }, 900);
+  const tk = G.flow; if (!Gf.board) setTimeout(() => { if (tk === G.flow) toastToRank('연승 기록이 랭킹에 올라가요'); }, 900);
 }
 
 // ───────────────── 튜토리얼 (신규 유저: 로딩 → 로비 없이 바로) ─────────────────
@@ -1677,6 +1832,7 @@ const Tut = {
     G.state = 'cutting'; G.timerOn = false; G.tutReady = false; $('cdim').classList.add('hidden'); $('ready').classList.add('hidden'); updateHint();
     let gone = false;
     const next = () => { if (gone) return; gone = true; Pop.close(); if (G.tut && G.state === 'cutting') setTimeout(() => this.guide(), 120); };
+    if (Gf.reward) { Gf.previewGift().then(next); return; }   // SDK 보상 안내(출석 1일차) — 닫히면 따라 하기
     const foot = '<button class="btn green" data-start>시작하기</button>';
     const d = Pop.open({ title: '출석 선물', body: giftSlot(`토스포인트 ${won(Attend.amt(1))}`, '튜토리얼을 끝내면 받을 수 있어요<br>한 번 따라 해 볼까요?'), foot, onClose: next });
     d.querySelector('[data-start]').onclick = () => { Sfx.pop(); next(); };
@@ -1705,6 +1861,7 @@ const Tut = {
   // 1-4: 튜토리얼 완료 → 출석 1일차 팝업. 닫으면 미션 창에서 받을 수 있음
   done() {
     this.clear(); G.tut = false; S.tut = true; Attend.begin(); save();
+    if (Gf.reward) { clearChips(); Gf.tutorialComplete().then(() => newGame()); return; }   // SDK: 튜토리얼 완료 기록 + 출석 1일차 (로그인하고 받기)
     clearChips(); welcomeOffer();   // 튜토리얼은 판 수에 안 셈 → 첫 판 플레이는 다음 정식 판에서 달성
   },
 };
@@ -1719,6 +1876,7 @@ function myRank() { if (!(S.bestClear > 0)) return 0; const me = { c: S.bestClea
 // 랭킹 변동 토스트 → [랭킹]으로 흡수 (미션 토스트와 같은 UI). 처음 오름 / 순위 오름 / 순위 내려감(서버 연결 후 다른 유저에게 밀릴 때)
 // 판 결과 화면이면 미션 안내(0.7초) 다음 차례로 줄 섬. 같은 순위면 아무것도 안 띄움
 function rankNotice(delay = 750) {
+  if (Gf.board) return;   // SDK 랭킹: 순위 안내는 Gf.submit 이 서버 응답(rank.all)으로 띄움
   const r = myRank(), prev = S.lastRank || 0; if (!r || r === prev) return;
   S.lastRank = r; save();
   const msg = !prev ? `랭킹에 올랐어요! 지금 ${r}위` : r < prev ? `랭킹 ${r}위로 올랐어요 (▲${prev - r})` : `랭킹 ${r}위로 내려갔어요 · 다시 도전해요`;
@@ -1875,8 +2033,11 @@ $('cutModes').querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setCutMod
 $('boosterBar').querySelectorAll('[data-item]').forEach(b=>b.onclick=()=>useBooster(b.dataset.item));
 $('playTools').addEventListener('pointerdown',e=>e.stopPropagation());
 $('walletHud').addEventListener('pointerdown',e=>e.stopPropagation());
-$('btnStart').onclick = () => { Sfx.unlock(); Sfx.pop(); G.attPending = !!Attend.today() && S.attShown !== dayKey(); newGame(); };
-$('btnMission').onclick = () => { Sfx.pop(); openMissions(); };
+let startBusy = false;
+$('btnStart').onclick = () => { Sfx.unlock(); Sfx.pop();
+  if (Gf.reward) { if (startBusy) return; startBusy = true; const w = Gf.beforePlay(); (w || Promise.resolve()).then(() => { startBusy = false; if (G.state === 'lobby' && !Pop.el) newGame(); }); return; }   // SDK: 그날 출석 제안 → 게임
+  G.attPending = !!Attend.today() && S.attShown !== dayKey(); newGame(); };
+$('btnMission').onclick = () => { Sfx.pop(); if (Gf.reward) Gf.openMissions(); else openMissions(); };
 $('btnNick').onclick = () => { Sfx.pop(); const v = $('nickInput').value.trim();
   if (!NICK_RE.test(v)) { toast('2~12자 한글/영문/숫자로 써 주세요'); return; } S.nick = v; save(); $('nickInput').blur(); toast('닉네임을 바꿨어요'); };
 $('nickInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnNick').click(); });
@@ -1886,10 +2047,10 @@ $('navHome').onclick = () => { if (G.state === 'judging') return; Sfx.pop(); if 
   b.innerHTML = '<div class="slot"><div class="lead">지금 그만두면 이번 판이 끝나요</div><div class="row2"><button class="btn" data-no>계속하기</button><button class="btn green" data-yes>홈으로</button></div></div>';
   Pop.open({ title: '홈으로 갈까요?', body: b, onClose: resume }); b.querySelector('[data-no]').onclick = () => { Pop.close(); resume(); }; b.querySelector('[data-yes]').onclick = () => { Pop.close(); $('cdim').classList.add('hidden'); clearChips(); goLobby(); }; }); }
   else { clearChips(); goLobby(); } };   // 결과 전 홈 = 판 수에 안 셈
-$('btnMis').onclick = () => { if (G.state === 'judging') return; Sfx.pop(); if (app.classList.contains('inPlay')) pauseFor((resume) => { openMissions(resume); }); else openMissions(); };
+$('btnMis').onclick = () => { if (G.state === 'judging') return; Sfx.pop(); if (Gf.reward) { Gf.openMissions(); return; } if (app.classList.contains('inPlay')) pauseFor((resume) => { openMissions(resume); }); else openMissions(); };
 for (const id of ['play']) $(id).querySelector('.nav').addEventListener('pointerdown', e => e.stopPropagation());
 $('btnSet2').onclick = () => { Sfx.pop(); openSettings(); };
-$('btnRank').onclick = () => { if (G.state === 'judging') return; Sfx.pop(); openRanking(); };
+$('btnRank').onclick = () => { if (G.state === 'judging') return; Sfx.pop(); if (Gf.board) Gf.openRanking(); else openRanking(); };
 $('navSet').onclick = () => { if (G.state === 'judging') return; Sfx.pop(); openSettings(); };
 for (const id of ['hdr']) $(id).addEventListener('pointerdown', e => e.stopPropagation());
 window.addEventListener('tossinsets', () => { L._fitted = false; fit(); });
@@ -1904,7 +2065,8 @@ requestAnimationFrame(loop);
 // 첫 방문 보상 (하루 1번, 팝업과 동시에 지급)
 // 신규(튜토리얼 기록 없음) = 로비 없이 바로 튜토리얼 / 그 외 = 로비. 진입 직후 로그인·자동 팝업 없음
 const afterIntro = () => { Sfx.preload(); CatSlash.preload(); FoodLoader.preloadAll(); if (!S.tut) Tut.start(); };  // 진입 직후 자동 팝업 금지(토스 검수) → 방문 보상 팝업 없음, 웰컴 기프트는 게임 SDK
+Gf.init();
 Intro.start(afterIntro);
 document.addEventListener('pointerdown', () => Sfx.unlock(), { capture: true });
 // 디버그/QA 훅
-window.__bb = { useBooster, refreshBoosters, refreshWallet, refreshPreview, toggleCutMode, setCutMode, smoothPath, cancelDrag, startCutting, update, goLobby, watchContinueAd, roundStages, nearMission, nMoreNotice, Tut, Attend, Alarm, attendOffer, attendView, afterRound, alarmPopup, adPopup, showFail, showFinal, openMissions, roundEndNotice, CatSlash, FoodLoader, Intro, FOODS, startSet, openRanking, G, S, CFG, Food, Missions, computePieces, scoreOf, doCut, judge, startStage, newGame, L };
+window.__bb = { Gf, useBooster, refreshBoosters, refreshWallet, refreshPreview, toggleCutMode, setCutMode, smoothPath, cancelDrag, startCutting, update, goLobby, watchContinueAd, roundStages, nearMission, nMoreNotice, Tut, Attend, Alarm, attendOffer, attendView, afterRound, alarmPopup, adPopup, showFail, showFinal, openMissions, roundEndNotice, CatSlash, FoodLoader, Intro, FOODS, startSet, openRanking, G, S, CFG, Food, Missions, computePieces, scoreOf, doCut, judge, startStage, newGame, L };

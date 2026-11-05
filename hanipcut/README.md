@@ -2,7 +2,7 @@
 
 음식 그림을 직선 또는 자유곡선으로 잘라 정해진 조각 수로 똑같이 나누는 스낵게임. 토스 미니앱(앱인토스) + 웹 + PWA.
 
-- 현재 버전: **v0.11.8** (`bb/src/game.js` 의 `CFG.version`)
+- 현재 버전: **v0.12.0** (`bb/src/game.js` 의 `CFG.version`)
 - 엔진 없음: HTML5 Canvas 2D + 순수 JS
 - 리워드 동선(첫 접속 → 튜토리얼 → 출석·알림 2배 → 미션 → 판 종료 안내 → 광고 · 랭킹)은 다른 게임에도 그대로 쓰는 공통 UX
 
@@ -31,6 +31,8 @@
 
 - **v0.11.8**: [직선 긋기][곡선 긋기] 중 선택된 버튼 = Theme Button Wood·Green(초록), 선택 안 된 쪽 = 회색.
 
+- **v0.12.0 지팩토리 게임 SDK 연결 (토스 빌드)**: `ait/vendor/gf-sdk@0.37.1.js`(SDK main 빌드, 해시 고정)를 토스 번들에 싣고, 설정은 `ait/gf.config.json` 한 곳. 자세한 배선은 [SDK_연동안내.md](SDK_연동안내.md). 웹·PWA 빌드는 SDK 없이 지금과 같습니다.
+
 이번 사업팀 재요청과 변경 결정은 [수정 계획](docs/superpowers/plans/2026-10-29-business-revision.md)에 있습니다. 이전 v0.10.0 [설계서](docs/superpowers/specs/2026-10-29-gameplay-expansion-design.md)와 [audit 기록](docs/superpowers/specs/2026-10-29-gameplay-expansion-audit.md)은 당시 기록으로 보관합니다.
 
 ## 폴더 구조
@@ -45,7 +47,9 @@ bb/                 게임 원본
   sim.js            판정 시뮬레이션(개발용)
 ait/                토스 미니앱 포장
   apps-in-toss.config.ts · package.json
-  bridge/           toss-bridge.js (토스 SDK 연결) · jua.woff2 (폰트)
+  gf.config.json    지팩토리 게임 SDK 설정 (gameId·env·프로모션 코드·리더보드·광고 ID)
+  vendor/           gf-sdk@<버전>.js (src_gfac_game_sdk main 빌드 사본)
+  bridge/           toss-bridge.js (앱인토스 전체 export → window.AppsInToss) · jua.woff2 (폰트)
   build-toss.py     bb 빌드 → ait/dist/ (토스용 index.html)
 SDK_연동안내.md       게임 ↔ SDK 연결 지점 (Platform 객체)
 ```
